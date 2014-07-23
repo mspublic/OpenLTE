@@ -32,6 +32,8 @@
     11/30/2013    Ben Wojtowicz    Added support for bladeRF.
     04/12/2014    Ben Wojtowicz    Pulled in a patch from Jevgenij for
                                    supporting non-B2X0 USRPs.
+    07/22/2014    Ben Wojtowicz    Pulled in a patch from Jeff Long to optimally
+                                   set the master clock rate for USRP B2X0.
 
 *******************************************************************************/
 
@@ -129,11 +131,11 @@ LTE_FDD_DL_SCAN_STATUS_ENUM LTE_fdd_dl_scan_flowgraph::start(uint16 dl_earfcn)
             osmosdr::source::sptr tmp_src0 = osmosdr::source::make("uhd");
             BOOST_FOREACH(const uhd::device_addr_t &dev, uhd::device::find(hint))
             {
-                uhd::usrp::multi_usrp::make(dev)->set_master_clock_rate(30720000);
+                uhd::usrp::multi_usrp::make(dev)->set_master_clock_rate(15360000);
                 mcr = uhd::usrp::multi_usrp::make(dev)->get_master_clock_rate();
             }
             if(0 != tmp_src0->get_sample_rates().size() &&
-               1 >= fabs(mcr - 30720000))
+               1 >= fabs(mcr - 15360000))
             {
                 hardware_type = LTE_FDD_DL_SCAN_HW_TYPE_USRP_B;
                 samp_src      = tmp_src0;

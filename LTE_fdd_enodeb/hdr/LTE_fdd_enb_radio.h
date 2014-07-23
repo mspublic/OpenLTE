@@ -28,6 +28,8 @@
     01/18/2014    Ben Wojtowicz    Handling EARFCN updates and multiple
                                    antennas.
     06/15/2014    Ben Wojtowicz    Changed fn_combo to current_tti.
+    07/22/2014    Ben Wojtowicz    Added clock source as a configurable
+                                   parameter.
 
 *******************************************************************************/
 
@@ -104,6 +106,8 @@ public:
     LTE_FDD_ENB_ERROR_ENUM set_tx_gain(uint32 gain);
     uint32 get_rx_gain(void);
     LTE_FDD_ENB_ERROR_ENUM set_rx_gain(uint32 gain);
+    std::string get_clock_source(void);
+    LTE_FDD_ENB_ERROR_ENUM set_clock_source(std::string source);
     uint32 get_sample_rate(void);
     void set_earfcns(int64 dl_earfcn, int64 ul_earfcn);
     void send(LTE_FDD_ENB_RADIO_TX_BUF_STRUCT *buf);
@@ -131,6 +135,7 @@ private:
     gr_complex       tx_buf[LIBLTE_PHY_N_SAMPS_PER_SUBFR_30_72MHZ];
     gr_complex       rx_buf[LIBLTE_PHY_N_SAMPS_PER_SUBFR_30_72MHZ];
     uhd::time_spec_t next_tx_ts;
+    std::string      clock_source;
     int64            N_ant;
     uint32           N_tx_samps;
     uint32           N_rx_samps;

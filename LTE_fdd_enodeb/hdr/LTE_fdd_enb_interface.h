@@ -32,6 +32,8 @@
     05/04/2014    Ben Wojtowicz    Added PCAP support and more error types.
     06/15/2014    Ben Wojtowicz    Added new error causes, ... support for info
                                    messages, and using the latest LTE library.
+    07/22/2014    Ben Wojtowicz    Added clock source as a configurable
+                                   parameter.
 
 *******************************************************************************/
 
@@ -207,6 +209,7 @@ typedef enum{
     LTE_FDD_ENB_PARAM_SELECTED_RADIO_IDX,
     LTE_FDD_ENB_PARAM_TX_GAIN,
     LTE_FDD_ENB_PARAM_RX_GAIN,
+    LTE_FDD_ENB_PARAM_CLOCK_SOURCE,
 
     LTE_FDD_ENB_PARAM_N_ITEMS,
 }LTE_FDD_ENB_PARAM_ENUM;
@@ -250,7 +253,8 @@ static const char lte_fdd_enb_param_text[LTE_FDD_ENB_PARAM_N_ITEMS][100] = {"ban
                                                                             "selected_radio_name",
                                                                             "selected_radio_idx",
                                                                             "tx_gain",
-                                                                            "rx_gain"};
+                                                                            "rx_gain",
+                                                                            "clock_source"};
 
 typedef struct{
     LTE_FDD_ENB_VAR_TYPE_ENUM var_type;

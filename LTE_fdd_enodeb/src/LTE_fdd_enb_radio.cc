@@ -35,6 +35,8 @@
     04/12/2014    Ben Wojtowicz    Pulled in a patch from Max Suraev for more
                                    descriptive start failures.
     06/15/2014    Ben Wojtowicz    Changed fn_combo to current_tti.
+    07/22/2014    Ben Wojtowicz    Added clock source as a configurable
+                                   parameter.
 
 *******************************************************************************/
 
@@ -109,10 +111,11 @@ LTE_fdd_enb_radio::LTE_fdd_enb_radio()
 
     // Setup radio thread
     get_sample_rate();
-    N_tx_samps = 0;
-    N_rx_samps = 0;
-    tx_gain    = 0;
-    rx_gain    = 0;
+    N_tx_samps   = 0;
+    N_rx_samps   = 0;
+    tx_gain      = 0;
+    rx_gain      = 0;
+    clock_source = "internal";
 
     // Start/Stop
     started = false;
@@ -159,6 +162,8 @@ LTE_FDD_ENB_ERROR_ENUM LTE_fdd_enb_radio::start(void)
 
                 // Setup the USRP
                 usrp = uhd::usrp::multi_usrp::make(devs[selected_radio_idx-1]);
+                usrp->set_clock_source(clock_source);
+                usrp->set_time_source(clock_source);
                 usrp->set_master_clock_rate(30720000);
                 if(2.0 >= fabs(usrp->get_master_clock_rate() - 30720000.0))
                 {
@@ -367,6 +372,42 @@ LTE_FDD_ENB_ERROR_ENUM LTE_fdd_enb_radio::set_rx_gain(uint32 gain)
     }
 
     return(LTE_FDD_ENB_ERROR_NONE);
+}
+std::string LTE_fdd_enb_radio::get_clock_source(void)
+{
+    boost::mutex::scoped_lock lock(start_mutex);
+    std::string               source;
+
+    if(!started)
+    {
+        source = clock_source;
+    }else{
+        if(0 == selected_radio_idx)
+        {
+            source = clock_source;
+        }else{
+            source = usrp->get_clock_source(0);
+        }
+    }
+
+    return(source);
+}
+LTE_FDD_ENB_ERROR_ENUM LTE_fdd_enb_radio::set_clock_source(std::string source)
+{
+    boost::mutex::scoped_lock lock(start_mutex);
+    LTE_FDD_ENB_ERROR_ENUM    err = LTE_FDD_ENB_ERROR_OUT_OF_BOUNDS;
+
+    if("internal" == source ||
+       "external" == source)
+    {
+        if(!started)
+        {
+            clock_source = source;
+            err          = LTE_FDD_ENB_ERROR_NONE;
+        }
+    }
+
+    return(err);
 }
 uint32 LTE_fdd_enb_radio::get_sample_rate(void)
 {

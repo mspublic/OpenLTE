@@ -110,3 +110,9 @@ v00.14.00     Split LIBLTE_MSG_STRUCT into bit and byte messages, fixed a bug wh
               QoS, uplink scheduling, RRC and MME NAS message handling, and RLC AM
               processing support, omitting the path from __FILE__, and deleteing
               users on C-RNTI expiration in LTE_fdd_enodeb.
+v00.14.01     Pulled in patches from Mike Peters to fix an uninitialized N_bits
+              value in liblte, Tim O'Shea to properly reference UHD libraries and
+              include directories for cmake, Jeff Long to fix a mutex double
+              unlock bug, Jeff Long to optimally set the master clock rate for
+              USRP B2X0 in the LTE_fdd_dl_scan application, and added clock source
+              as a configurable parameter in the LTE_fdd_enodeb application.

@@ -1,6 +1,6 @@
 /*******************************************************************************
 
-    Copyright 2013 Ben Wojtowicz
+    Copyright 2013-2014 Ben Wojtowicz
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -27,6 +27,8 @@
     02/26/2013    Ben Wojtowicz    Created file
     08/26/2013    Ben Wojtowicz    Moved to using select with a timeout for
                                    socket management.
+    07/22/2014    Ben Wojtowicz    Pulled in a patch from Jeff Long to fix
+                                   double unlocking of mutex.
 
 *******************************************************************************/
 
@@ -237,6 +239,7 @@ void* libtools_socket_wrap::server_thread(void *inputs)
                         if(0 > sock_fd)
                         {
                             act_inputs->handle_error(LIBTOOLS_SOCKET_WRAP_ERROR_SOCKET);
+                            act_inputs->socket_wrap->socket_mutex.unlock();
                             return(NULL);
                         }
 
@@ -252,8 +255,9 @@ void* libtools_socket_wrap::server_thread(void *inputs)
                         {
                             fd_max = sock_fd;
                         }
+                    }else{
+                        act_inputs->socket_wrap->socket_mutex.unlock();
                     }
-                    act_inputs->socket_wrap->socket_mutex.unlock();
                 }else{
                     memset(read_buf, '\0', LINE_MAX);
                     nbytes = read(sock_fd, read_buf, LINE_MAX);
@@ -266,8 +270,9 @@ void* libtools_socket_wrap::server_thread(void *inputs)
                         {
                             act_inputs->socket_wrap->socket_mutex.unlock();
                             act_inputs->handle_disconnect();
+                        }else{
+                            act_inputs->socket_wrap->socket_mutex.unlock();
                         }
-                        act_inputs->socket_wrap->socket_mutex.unlock();
                         act_inputs->socket_wrap->socket_mutex.lock();
                         act_inputs->socket_wrap->socket_state = LIBTOOLS_SOCKET_WRAP_STATE_CLOSED;
                         act_inputs->socket_wrap->socket_mutex.unlock();
@@ -278,8 +283,9 @@ void* libtools_socket_wrap::server_thread(void *inputs)
                         {
                             act_inputs->socket_wrap->socket_mutex.unlock();
                             act_inputs->handle_disconnect();
+                        }else{
+                            act_inputs->socket_wrap->socket_mutex.unlock();
                         }
-                        act_inputs->socket_wrap->socket_mutex.unlock();
                         act_inputs->socket_wrap->socket_mutex.lock();
                         act_inputs->socket_wrap->socket_state = LIBTOOLS_SOCKET_WRAP_STATE_THREADED;
                         act_inputs->socket_wrap->socket_mutex.unlock();

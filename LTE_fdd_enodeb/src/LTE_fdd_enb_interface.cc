@@ -33,6 +33,8 @@
     05/04/2014    Ben Wojtowicz    Added PCAP support.
     06/15/2014    Ben Wojtowicz    Added  ... support for info messages and
                                    using the latest LTE library.
+    07/22/2014    Ben Wojtowicz    Added clock source as a configurable
+                                   parameter.
 
 *******************************************************************************/
 
@@ -789,6 +791,8 @@ void LTE_fdd_enb_interface::handle_read(std::string msg)
                 send_ctrl_error_msg(LTE_FDD_ENB_ERROR_NONE, boost::lexical_cast<std::string>(radio->get_tx_gain()));
             }else if(std::string::npos != msg.find(lte_fdd_enb_param_text[LTE_FDD_ENB_PARAM_RX_GAIN])){
                 send_ctrl_error_msg(LTE_FDD_ENB_ERROR_NONE, boost::lexical_cast<std::string>(radio->get_rx_gain()));
+            }else if(std::string::npos != msg.find(lte_fdd_enb_param_text[LTE_FDD_ENB_PARAM_CLOCK_SOURCE])){
+                send_ctrl_error_msg(LTE_FDD_ENB_ERROR_NONE, radio->get_clock_source());
             }else{
                 send_ctrl_error_msg(LTE_FDD_ENB_ERROR_INVALID_PARAM, "");
             }
@@ -877,6 +881,8 @@ void LTE_fdd_enb_interface::handle_write(std::string msg)
             }else if(std::string::npos != msg.find(lte_fdd_enb_param_text[LTE_FDD_ENB_PARAM_RX_GAIN])){
                 u_value = boost::lexical_cast<uint32>(msg.substr(msg.find(" ")+1, std::string::npos));
                 send_ctrl_error_msg(radio->set_rx_gain(u_value), "");
+            }else if(std::string::npos != msg.find(lte_fdd_enb_param_text[LTE_FDD_ENB_PARAM_CLOCK_SOURCE])){
+                send_ctrl_error_msg(radio->set_clock_source(msg.substr(msg.find(" ")+1, std::string::npos)), "");
             }else{
                 send_ctrl_error_msg(LTE_FDD_ENB_ERROR_INVALID_PARAM, "");
             }
@@ -1174,6 +1180,11 @@ void LTE_fdd_enb_interface::handle_help(void)
     }catch(...){
         // Intentionally do nothing
     }
+    send_ctrl_msg(tmp_str);
+    tmp_str  = "\t\t";
+    tmp_str += lte_fdd_enb_param_text[LTE_FDD_ENB_PARAM_CLOCK_SOURCE];
+    tmp_str += " = ";
+    tmp_str += radio->get_clock_source();
     send_ctrl_msg(tmp_str);
 
     // System Parameters

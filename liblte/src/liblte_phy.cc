@@ -95,6 +95,8 @@
                                    PDCCH encode/decode.
     06/15/2014    Ben Wojtowicz    Added DCI 0 packing and proper support for
                                    transmission of more than one CCE in PDCCH.
+    07/22/2014    Ben Wojtowicz    Pulled in a patch from Mike Peters to fix
+                                   an uninitialized N_bits value.
 
 *******************************************************************************/
 
@@ -1044,7 +1046,8 @@ void pcfich_channel_demap(LIBLTE_PHY_STRUCT          *phy_struct,
                           LIBLTE_PHY_SUBFRAME_STRUCT *subframe,
                           uint32                      N_id_cell,
                           uint8                       N_ant,
-                          LIBLTE_PHY_PCFICH_STRUCT   *pcfich);
+                          LIBLTE_PHY_PCFICH_STRUCT   *pcfich,
+                          uint32                     *N_bits);
 
 /*********************************************************************
     Name: pdcch_permute_pre_calc
@@ -4257,7 +4260,7 @@ LIBLTE_ERROR_ENUM liblte_phy_pdcch_channel_decode(LIBLTE_PHY_STRUCT             
        pdcch      != NULL)
     {
         // PCFICH
-        pcfich_channel_demap(phy_struct, subframe, N_id_cell, N_ant, pcfich);
+        pcfich_channel_demap(phy_struct, subframe, N_id_cell, N_ant, pcfich, &N_bits);
         if(LIBLTE_SUCCESS != cfi_channel_decode(phy_struct,
                                                 phy_struct->pdcch_descramb_bits,
                                                 N_bits,
@@ -7390,11 +7393,11 @@ void pcfich_channel_demap(LIBLTE_PHY_STRUCT          *phy_struct,
                           LIBLTE_PHY_SUBFRAME_STRUCT *subframe,
                           uint32                      N_id_cell,
                           uint8                       N_ant,
-                          LIBLTE_PHY_PCFICH_STRUCT   *pcfich)
+                          LIBLTE_PHY_PCFICH_STRUCT   *pcfich,
+                          uint32                     *N_bits)
 {
     uint32 M_layer_symb;
     uint32 M_symb;
-    uint32 N_bits;
     uint32 c_init;
     uint32 k_hat;
     uint32 i;
@@ -7455,8 +7458,8 @@ void pcfich_channel_demap(LIBLTE_PHY_STRUCT          *phy_struct,
                         M_symb,
                         LIBLTE_PHY_MODULATION_TYPE_QPSK,
                         phy_struct->pdcch_soft_bits,
-                        &N_bits);
-    for(i=0; i<N_bits; i++)
+                        N_bits);
+    for(i=0; i<*N_bits; i++)
     {
         phy_struct->pdcch_descramb_bits[i] = (float)phy_struct->pdcch_soft_bits[i]*(1-2*(float)phy_struct->pdcch_c[i]);
     }
