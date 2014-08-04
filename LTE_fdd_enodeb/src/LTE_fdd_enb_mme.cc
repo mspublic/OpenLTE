@@ -388,7 +388,7 @@ void LTE_fdd_enb_mme::attach_sm(LTE_fdd_enb_user *user,
         send_identity_request(user, rb, LIBLTE_MME_ID_TYPE_2_IMSI);
         break;
     case LTE_FDD_ENB_MME_STATE_REJECT:
-        interface->send_ctrl_info_msg("rejecting user id=%u",
+        interface->send_ctrl_info_msg("rejecting user id=%llu",
                                       user->get_temp_id());
         user->set_delete_at_idle(true);
         send_attach_reject(user, rb, LIBLTE_MME_EMM_CAUSE_IMSI_UNKNOWN_IN_HSS);

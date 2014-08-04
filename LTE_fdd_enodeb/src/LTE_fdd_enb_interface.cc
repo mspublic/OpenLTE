@@ -1288,7 +1288,7 @@ void LTE_fdd_enb_interface::handle_add_user(std::string msg)
     // Extract AMF and check
     amf_str   = msg.substr(msg.find("amf")+sizeof("amf"), std::string::npos);
     amf_str   = amf_str.substr(0, amf_str.find(" "));
-    amf_valid = is_string_valid_as_number(amf_str, 2, 0xF);
+    amf_valid = is_string_valid_as_number(amf_str, 4, 0xF);
 
     if(imsi_valid && imei_valid && k_valid && amf_valid)
     {
