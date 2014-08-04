@@ -36,6 +36,7 @@
                                    DL CCCH message processing.
     06/15/2014    Ben Wojtowicz    Added uplink scheduling and changed fn_combo
                                    to current_tti.
+    08/03/2014    Ben Wojtowicz    Removed debug message.
 
 *******************************************************************************/
 
@@ -299,16 +300,6 @@ void LTE_fdd_enb_mac::handle_ready_to_send(LTE_FDD_ENB_READY_TO_SEND_MSG_STRUCT 
     // Send tick to timer manager
     // FIXME: Send this through msgq
     timer_mgr->handle_tick();
-
-    interface->send_debug_msg(LTE_FDD_ENB_DEBUG_TYPE_INFO,
-                              LTE_FDD_ENB_DEBUG_LEVEL_MAC,
-                              __FILE__,
-                              __LINE__,
-                              "RTS DL_CURRENT_TTI:PHY=%u,MAC=%u UL_CURRENT_TTI:PHY=%u,MAC=%u",
-                              rts->dl_current_tti,
-                              sched_dl_subfr[sched_cur_dl_subfn].current_tti,
-                              rts->ul_current_tti,
-                              sched_ul_subfr[sched_cur_ul_subfn].current_tti);
 
     if(rts->dl_current_tti != sched_dl_subfr[sched_cur_dl_subfn].current_tti)
     {

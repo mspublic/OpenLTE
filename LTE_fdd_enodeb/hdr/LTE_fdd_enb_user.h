@@ -27,6 +27,7 @@
     11/09/2013    Ben Wojtowicz    Created file
     05/04/2014    Ben Wojtowicz    Added radio bearer support.
     06/15/2014    Ben Wojtowicz    Added initialize routine.
+    08/03/2014    Ben Wojtowicz    Refactored user identities.
 
 *******************************************************************************/
 
@@ -57,6 +58,10 @@
                               TYPEDEFS
 *******************************************************************************/
 
+typedef struct{
+    uint64 imsi;
+    uint64 imei;
+}LTE_FDD_ENB_USER_ID_STRUCT;
 
 /*******************************************************************************
                               CLASS DECLARATIONS
@@ -66,16 +71,25 @@ class LTE_fdd_enb_user
 {
 public:
     // Constructor/Destructor
-    LTE_fdd_enb_user(std::string _imsi);
+    LTE_fdd_enb_user(uint16 _c_rnti);
     ~LTE_fdd_enb_user();
 
     // Initialize
     void init(void);
 
     // Identity
-    std::string get_imsi(void);
+    void set_id(LTE_FDD_ENB_USER_ID_STRUCT *identity);
+    LTE_FDD_ENB_USER_ID_STRUCT* get_id(void);
+    bool is_id_set(void);
+    void set_temp_id(uint64 id);
+    uint64 get_temp_id(void);
+    std::string get_imsi_str(void);
+    uint64 get_imsi_num(void);
+    std::string get_imei_str(void);
+    uint64 get_imei_num(void);
     void set_c_rnti(uint16 _c_rnti);
     uint16 get_c_rnti(void);
+    bool is_c_rnti_set(void);
 
     // Radio Bearers
     void get_srb0(LTE_fdd_enb_rb **rb);
@@ -89,16 +103,26 @@ public:
     // MAC
     LIBLTE_MAC_PDU_STRUCT pusch_mac_pdu;
 
+    // Generic
+    void set_delete_at_idle(bool dai);
+    bool get_delete_at_idle(void);
+
 private:
     // Identity
-    std::string imsi;
-    uint32      c_rnti;
+    LTE_FDD_ENB_USER_ID_STRUCT id;
+    uint64                     temp_id;
+    uint32                     c_rnti;
+    bool                       id_set;
+    bool                       c_rnti_set;
 
     // Radio Bearers
     LTE_fdd_enb_rb *srb0;
     LTE_fdd_enb_rb *srb1;
     LTE_fdd_enb_rb *srb2;
     LTE_fdd_enb_rb *drb[8];
+
+    // Generic
+    bool delete_at_idle;
 };
 
 #endif /* __LTE_FDD_ENB_USER_H__ */

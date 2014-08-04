@@ -25,6 +25,7 @@
     Revision History
     ----------    -------------    --------------------------------------------
     06/15/2014    Ben Wojtowicz    Created file
+    08/03/2014    Ben Wojtowicz    Added authentication vector support.
 
 *******************************************************************************/
 
@@ -43,6 +44,9 @@
                               DEFINES
 *******************************************************************************/
 
+#define LTE_FDD_ENB_IND_HE_N_BITS    5
+#define LTE_FDD_ENB_IND_HE_MAX_VALUE 31
+#define LTE_FDD_ENB_SEQ_HE_MAX_VALUE 0x7FFFFFFFFFFFUL
 
 /*******************************************************************************
                               FORWARD DECLARATIONS
@@ -53,6 +57,34 @@
                               TYPEDEFS
 *******************************************************************************/
 
+typedef struct{
+    uint8 k[16];
+    uint8 amf[2];
+}LTE_FDD_ENB_STORED_DATA_STRUCT;
+
+typedef struct{
+    uint8 rand[16];
+    uint8 res[8];
+    uint8 ck[16];
+    uint8 ik[16];
+    uint8 autn[16];
+}LTE_FDD_ENB_AUTHENTICATION_VECTOR_STRUCT;
+
+typedef struct{
+    LTE_FDD_ENB_AUTHENTICATION_VECTOR_STRUCT auth_vec;
+    uint64                                   sqn_he;
+    uint64                                   seq_he;
+    uint8                                    ak[6];
+    uint8                                    mac[8];
+    uint8                                    k_asme[32];
+    uint8                                    ind_he;
+}LTE_FDD_ENB_GENERATED_DATA_STRUCT;
+
+typedef struct{
+    LTE_FDD_ENB_USER_ID_STRUCT        id;
+    LTE_FDD_ENB_STORED_DATA_STRUCT    stored_data;
+    LTE_FDD_ENB_GENERATED_DATA_STRUCT generated_data;
+}LTE_FDD_ENB_HSS_USER_STRUCT;
 
 /*******************************************************************************
                               CLASS DECLARATIONS
@@ -66,10 +98,15 @@ public:
     static void cleanup(void);
 
     // External interface
-    LTE_FDD_ENB_ERROR_ENUM add_user(std::string imsi);
-    LTE_FDD_ENB_ERROR_ENUM find_user(std::string imsi, LTE_fdd_enb_user **user);
+    LTE_FDD_ENB_ERROR_ENUM add_user(std::string imsi, std::string imei, std::string k, std::string amf);
     LTE_FDD_ENB_ERROR_ENUM del_user(std::string imsi);
     std::string print_all_users(void);
+    bool is_imsi_allowed(uint64 imsi);
+    bool is_imei_allowed(uint64 imei);
+    LTE_FDD_ENB_USER_ID_STRUCT* get_user_id_from_imsi(uint64 imsi);
+    LTE_FDD_ENB_USER_ID_STRUCT* get_user_id_from_imei(uint64 imei);
+    void generate_security_data(LTE_FDD_ENB_USER_ID_STRUCT *id, uint16 mcc, uint16 mnc);
+    LTE_FDD_ENB_AUTHENTICATION_VECTOR_STRUCT* get_auth_vec(LTE_FDD_ENB_USER_ID_STRUCT *id);
 
 private:
     // Singleton
@@ -78,8 +115,8 @@ private:
     ~LTE_fdd_enb_hss();
 
     // Allowed users
-    boost::mutex                  user_mutex;
-    std::list<LTE_fdd_enb_user *> user_list;
+    boost::mutex                             user_mutex;
+    std::list<LTE_FDD_ENB_HSS_USER_STRUCT *> user_list;
 };
 
 #endif /* __LTE_FDD_ENB_HSS_H__ */

@@ -25,6 +25,7 @@
     Revision History
     ----------    -------------    --------------------------------------------
     06/15/2014    Ben Wojtowicz    Created file.
+    08/03/2014    Ben Wojtowicz    Added NACK support.
 
 *******************************************************************************/
 
@@ -257,6 +258,7 @@ static const char liblte_rlc_e2_field_text[LIBLTE_RLC_E2_FIELD_N_ITEMS][20] = {"
 // Enums
 // Structs
 typedef struct{
+    LIBLTE_RLC_DC_FIELD_ENUM dc;
     LIBLTE_RLC_RF_FIELD_ENUM rf;
     LIBLTE_RLC_P_FIELD_ENUM  p;
     LIBLTE_RLC_FI_FIELD_ENUM fi;
@@ -268,6 +270,9 @@ typedef struct{
 }LIBLTE_RLC_AMD_PDU_STRUCT;
 // Functions
 LIBLTE_ERROR_ENUM liblte_rlc_pack_amd_pdu(LIBLTE_RLC_AMD_PDU_STRUCT *amd,
+                                          LIBLTE_BIT_MSG_STRUCT     *pdu);
+LIBLTE_ERROR_ENUM liblte_rlc_pack_amd_pdu(LIBLTE_RLC_AMD_PDU_STRUCT *amd,
+                                          LIBLTE_BIT_MSG_STRUCT     *data,
                                           LIBLTE_BIT_MSG_STRUCT     *pdu);
 LIBLTE_ERROR_ENUM liblte_rlc_unpack_amd_pdu(LIBLTE_BIT_MSG_STRUCT     *pdu,
                                             LIBLTE_RLC_AMD_PDU_STRUCT *amd);
@@ -281,7 +286,9 @@ LIBLTE_ERROR_ENUM liblte_rlc_unpack_amd_pdu(LIBLTE_BIT_MSG_STRUCT     *pdu,
 // Enums
 // Structs
 typedef struct{
+    uint32 N_nack;
     uint16 ack_sn;
+    uint16 nack_sn[LIBLTE_RLC_AM_WINDOW_SIZE];
 }LIBLTE_RLC_STATUS_PDU_STRUCT;
 // Functions
 LIBLTE_ERROR_ENUM liblte_rlc_pack_status_pdu(LIBLTE_RLC_STATUS_PDU_STRUCT *status,

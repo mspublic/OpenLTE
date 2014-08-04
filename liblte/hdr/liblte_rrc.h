@@ -41,6 +41,7 @@
                                    and UL CCCH Messages.
     05/04/2014    Ben Wojtowicz    Added support for DL CCCH Messages.
     06/15/2014    Ben Wojtowicz    Added support for UL DCCH Messages.
+    08/03/2014    Ben Wojtowicz    Added more decoding/encoding.
 
 *******************************************************************************/
 
@@ -196,12 +197,10 @@ LIBLTE_ERROR_ENUM liblte_rrc_unpack_c_rnti_ie(uint8  **ie_ptr,
 // Enums
 // Structs
 // Functions
-LIBLTE_ERROR_ENUM liblte_rrc_pack_dedicated_info_cdma2000_ie(uint8   *ded_info_cdma2000,
-                                                             uint32   length,
-                                                             uint8  **ie_ptr);
-LIBLTE_ERROR_ENUM liblte_rrc_unpack_dedicated_info_cdma2000_ie(uint8  **ie_ptr,
-                                                               uint8   *ded_info_cdma2000,
-                                                               uint32  *length);
+LIBLTE_ERROR_ENUM liblte_rrc_pack_dedicated_info_cdma2000_ie(LIBLTE_BYTE_MSG_STRUCT  *ded_info_cdma2000,
+                                                             uint8                  **ie_ptr);
+LIBLTE_ERROR_ENUM liblte_rrc_unpack_dedicated_info_cdma2000_ie(uint8                  **ie_ptr,
+                                                               LIBLTE_BYTE_MSG_STRUCT  *ded_info_cdma2000);
 
 /*********************************************************************
     IE Name: Dedicated Info NAS
@@ -4594,9 +4593,19 @@ LIBLTE_ERROR_ENUM liblte_rrc_unpack_sys_info_block_type_8_ie(uint8              
 *********************************************************************/
 // Defines
 // Enums
+typedef enum{
+    LIBLTE_RRC_UL_INFORMATION_TRANSFER_TYPE_NAS = 0,
+    LIBLTE_RRC_UL_INFORMATION_TRANSFER_TYPE_CDMA2000_1XRTT,
+    LIBLTE_RRC_UL_INFORMATION_TRANSFER_TYPE_CDMA2000_HRPD,
+    LIBLTE_RRC_UL_INFORMATION_TRANSFER_TYPE_N_ITEMS,
+}LIBLTE_RRC_UL_INFORMATION_TRANSFER_TYPE_ENUM;
+static const char liblte_rrc_ul_information_transfer_type_text[LIBLTE_RRC_UL_INFORMATION_TRANSFER_TYPE_N_ITEMS][20] = {"NAS",
+                                                                                                                       "CDMA2000-1XRTT",
+                                                                                                                       "CDMA2000-HRPD"};
 // Structs
 typedef struct{
-    // FIXME
+    LIBLTE_BYTE_MSG_STRUCT                       dedicated_info;
+    LIBLTE_RRC_UL_INFORMATION_TRANSFER_TYPE_ENUM dedicated_info_type;
 }LIBLTE_RRC_UL_INFORMATION_TRANSFER_STRUCT;
 // Functions
 LIBLTE_ERROR_ENUM liblte_rrc_pack_ul_information_transfer_msg(LIBLTE_RRC_UL_INFORMATION_TRANSFER_STRUCT *ul_info_transfer,
@@ -4655,8 +4664,16 @@ LIBLTE_ERROR_ENUM liblte_rrc_unpack_ue_information_response_msg(LIBLTE_BIT_MSG_S
 // Defines
 // Enums
 // Structs
+typedef struct{
+    uint8 rrc_transaction_id;
+    bool  rach_report_req;
+    bool  rlf_report_req;
+}LIBLTE_RRC_UE_INFORMATION_REQUEST_STRUCT;
 // Functions
-// FIXME
+LIBLTE_ERROR_ENUM liblte_rrc_pack_ue_information_request_msg(LIBLTE_RRC_UE_INFORMATION_REQUEST_STRUCT *ue_info_req,
+                                                             LIBLTE_BIT_MSG_STRUCT                    *msg);
+LIBLTE_ERROR_ENUM liblte_rrc_unpack_ue_information_request_msg(LIBLTE_BIT_MSG_STRUCT                    *msg,
+                                                               LIBLTE_RRC_UE_INFORMATION_REQUEST_STRUCT *ue_info_req);
 
 /*********************************************************************
     Message Name: UE Capability Information
@@ -4689,8 +4706,14 @@ LIBLTE_ERROR_ENUM liblte_rrc_unpack_ue_capability_information_msg(LIBLTE_BIT_MSG
 // Defines
 // Enums
 // Structs
+typedef struct{
+    // FIXME
+}LIBLTE_RRC_UE_CAPABILITY_ENQUIRY_STRUCT;
 // Functions
-// FIXME
+LIBLTE_ERROR_ENUM liblte_rrc_pack_ue_capability_enquiry_msg(LIBLTE_RRC_UE_CAPABILITY_ENQUIRY_STRUCT *ue_cap_enquiry,
+                                                            LIBLTE_BIT_MSG_STRUCT                   *msg);
+LIBLTE_ERROR_ENUM liblte_rrc_unpack_ue_capability_enquiry_msg(LIBLTE_BIT_MSG_STRUCT                   *msg,
+                                                              LIBLTE_RRC_UE_CAPABILITY_ENQUIRY_STRUCT *ue_cap_enquiry);
 
 /*********************************************************************
     Message Name: System Information Block Type 1
@@ -4921,8 +4944,14 @@ LIBLTE_ERROR_ENUM liblte_rrc_unpack_security_mode_complete_msg(LIBLTE_BIT_MSG_ST
 // Defines
 // Enums
 // Structs
+typedef struct{
+    // FIXME
+}LIBLTE_RRC_SECURITY_MODE_COMMAND_STRUCT;
 // Functions
-// FIXME
+LIBLTE_ERROR_ENUM liblte_rrc_pack_security_mode_command_msg(LIBLTE_RRC_SECURITY_MODE_COMMAND_STRUCT *security_mode_cmd,
+                                                            LIBLTE_BIT_MSG_STRUCT                   *msg);
+LIBLTE_ERROR_ENUM liblte_rrc_unpack_security_mode_command_msg(LIBLTE_BIT_MSG_STRUCT                   *msg,
+                                                              LIBLTE_RRC_SECURITY_MODE_COMMAND_STRUCT *security_mode_cmd);
 
 /*********************************************************************
     Message Name: RRC Connection Setup Complete
@@ -4944,7 +4973,7 @@ typedef struct{
 typedef struct{
     LIBLTE_RRC_REGISTERED_MME_STRUCT registered_mme;
     LIBLTE_BYTE_MSG_STRUCT           dedicated_info_nas;
-    uint8                            transaction_id;
+    uint8                            rrc_transaction_id;
     uint8                            selected_plmn_id;
     bool                             registered_mme_present;
 }LIBLTE_RRC_CONNECTION_SETUP_COMPLETE_STRUCT;
@@ -4966,7 +4995,7 @@ LIBLTE_ERROR_ENUM liblte_rrc_unpack_rrc_connection_setup_complete_msg(LIBLTE_BIT
 // Structs
 typedef struct{
     LIBLTE_RRC_RR_CONFIG_DEDICATED_STRUCT rr_cnfg;
-    uint8                                 transaction_id;
+    uint8                                 rrc_transaction_id;
 }LIBLTE_RRC_CONNECTION_SETUP_STRUCT;
 // Functions
 LIBLTE_ERROR_ENUM liblte_rrc_pack_rrc_connection_setup_msg(LIBLTE_RRC_CONNECTION_SETUP_STRUCT *con_setup,
@@ -5035,9 +5064,27 @@ LIBLTE_ERROR_ENUM liblte_rrc_unpack_rrc_connection_request_msg(LIBLTE_BIT_MSG_ST
 *********************************************************************/
 // Defines
 // Enums
+typedef enum{
+    LIBLTE_RRC_RELEASE_CAUSE_LOAD_BALANCING_TAU_REQUIRED = 0,
+    LIBLTE_RRC_RELEASE_CAUSE_OTHER,
+    LIBLTE_RRC_RELEASE_CAUSE_CS_FALLBACK_HIGH_PRIORITY,
+    LIBLTE_RRC_RELEASE_CAUSE_SPARE1,
+    LIBLTE_RRC_RELEASE_CAUSE_N_ITEMS,
+}LIBLTE_RRC_RELEASE_CAUSE_ENUM;
+static const char liblte_rrc_release_cause_text[LIBLTE_RRC_RELEASE_CAUSE_N_ITEMS][100] = {"Load Balancing TAU Required",
+                                                                                          "Other",
+                                                                                          "CS Fallback High Priority",
+                                                                                          "SPARE"};
 // Structs
+typedef struct{
+    LIBLTE_RRC_RELEASE_CAUSE_ENUM release_cause;
+    uint8                         rrc_transaction_id;
+}LIBLTE_RRC_CONNECTION_RELEASE_STRUCT;
 // Functions
-// FIXME
+LIBLTE_ERROR_ENUM liblte_rrc_pack_rrc_connection_release_msg(LIBLTE_RRC_CONNECTION_RELEASE_STRUCT *con_release,
+                                                             LIBLTE_BIT_MSG_STRUCT                *msg);
+LIBLTE_ERROR_ENUM liblte_rrc_unpack_rrc_connection_release_msg(LIBLTE_BIT_MSG_STRUCT                *msg,
+                                                               LIBLTE_RRC_CONNECTION_RELEASE_STRUCT *con_release);
 
 /*********************************************************************
     Message Name: RRC Connection Reject
@@ -5156,7 +5203,7 @@ LIBLTE_ERROR_ENUM liblte_rrc_unpack_rrc_connection_reestablishment_complete_msg(
 // Structs
 typedef struct{
     LIBLTE_RRC_RR_CONFIG_DEDICATED_STRUCT rr_cnfg;
-    uint8                                 transaction_id;
+    uint8                                 rrc_transaction_id;
     uint8                                 next_hop_chaining_count;
 }LIBLTE_RRC_CONNECTION_REESTABLISHMENT_STRUCT;
 // Functions
@@ -5195,8 +5242,14 @@ LIBLTE_ERROR_ENUM liblte_rrc_unpack_rrc_connection_reconfiguration_complete_msg(
 // Defines
 // Enums
 // Structs
+typedef struct{
+    // FIXME
+}LIBLTE_RRC_CONNECTION_RECONFIGURATION_STRUCT;
 // Functions
-// FIXME
+LIBLTE_ERROR_ENUM liblte_rrc_pack_rrc_connection_reconfiguration_msg(LIBLTE_RRC_CONNECTION_RECONFIGURATION_STRUCT *rrc_con_reconfig,
+                                                                     LIBLTE_BIT_MSG_STRUCT                        *msg);
+LIBLTE_ERROR_ENUM liblte_rrc_unpack_rrc_connection_reconfiguration_msg(LIBLTE_BIT_MSG_STRUCT                        *msg,
+                                                                       LIBLTE_RRC_CONNECTION_RECONFIGURATION_STRUCT *rrc_con_reconfig);
 
 /*********************************************************************
     Message Name: RN Reconfiguration Complete
@@ -5229,8 +5282,14 @@ LIBLTE_ERROR_ENUM liblte_rrc_unpack_rn_reconfiguration_complete_msg(LIBLTE_BIT_M
 // Defines
 // Enums
 // Structs
+typedef struct{
+    // FIXME
+}LIBLTE_RRC_RN_RECONFIGURATION_STRUCT;
 // Functions
-// FIXME
+LIBLTE_ERROR_ENUM liblte_rrc_pack_rn_reconfiguration_msg(LIBLTE_RRC_RN_RECONFIGURATION_STRUCT *rn_reconfig,
+                                                         LIBLTE_BIT_MSG_STRUCT                *msg);
+LIBLTE_ERROR_ENUM liblte_rrc_unpack_rn_reconfiguration_msg(LIBLTE_BIT_MSG_STRUCT                *msg,
+                                                           LIBLTE_RRC_RN_RECONFIGURATION_STRUCT *rn_reconfig);
 
 /*********************************************************************
     Message Name: Proximity Indication
@@ -5354,8 +5413,14 @@ LIBLTE_ERROR_ENUM liblte_rrc_unpack_paging_msg(LIBLTE_BIT_MSG_STRUCT    *msg,
 // Defines
 // Enums
 // Structs
+typedef struct{
+    // FIXME
+}LIBLTE_RRC_MOBILITY_FROM_EUTRA_COMMAND_STRUCT;
 // Functions
-// FIXME
+LIBLTE_ERROR_ENUM liblte_rrc_pack_mobility_from_eutra_command_msg(LIBLTE_RRC_MOBILITY_FROM_EUTRA_COMMAND_STRUCT *mobility_from_eutra_cmd,
+                                                                  LIBLTE_BIT_MSG_STRUCT                         *msg);
+LIBLTE_ERROR_ENUM liblte_rrc_unpack_mobility_from_eutra_command_msg(LIBLTE_BIT_MSG_STRUCT                         *msg,
+                                                                    LIBLTE_RRC_MOBILITY_FROM_EUTRA_COMMAND_STRUCT *mobility_from_eutra_cmd);
 
 /*********************************************************************
     Message Name: Measurement Report
@@ -5410,8 +5475,14 @@ LIBLTE_ERROR_ENUM liblte_rrc_unpack_measurement_report_msg(LIBLTE_BIT_MSG_STRUCT
 // Defines
 // Enums
 // Structs
+typedef struct{
+    // FIXME
+}LIBLTE_RRC_LOGGED_MEASUREMENTS_CONFIGURATION_STRUCT;
 // Functions
-// FIXME
+LIBLTE_ERROR_ENUM liblte_rrc_pack_logged_measurements_configuration_msg(LIBLTE_RRC_LOGGED_MEASUREMENTS_CONFIGURATION_STRUCT *logged_measurements_config,
+                                                                        LIBLTE_BIT_MSG_STRUCT                               *msg);
+LIBLTE_ERROR_ENUM liblte_rrc_unpack_logged_measurements_configuration_msg(LIBLTE_BIT_MSG_STRUCT                               *msg,
+                                                                          LIBLTE_RRC_LOGGED_MEASUREMENTS_CONFIGURATION_STRUCT *logged_measurements_config);
 
 /*********************************************************************
     Message Name: Handover From EUTRA Preparation Request (CDMA2000)
@@ -5424,8 +5495,14 @@ LIBLTE_ERROR_ENUM liblte_rrc_unpack_measurement_report_msg(LIBLTE_BIT_MSG_STRUCT
 // Defines
 // Enums
 // Structs
+typedef struct{
+    // FIXME
+}LIBLTE_RRC_HANDOVER_FROM_EUTRA_PREPARATION_REQUEST_STRUCT;
 // Functions
-// FIXME
+LIBLTE_ERROR_ENUM liblte_rrc_pack_handover_from_eutra_preparation_request_msg(LIBLTE_RRC_HANDOVER_FROM_EUTRA_PREPARATION_REQUEST_STRUCT *handover_from_eutra_prep_req,
+                                                                              LIBLTE_BIT_MSG_STRUCT                                     *msg);
+LIBLTE_ERROR_ENUM liblte_rrc_unpack_handover_from_eutra_preparation_request_msg(LIBLTE_BIT_MSG_STRUCT                                     *msg,
+                                                                                LIBLTE_RRC_HANDOVER_FROM_EUTRA_PREPARATION_REQUEST_STRUCT *handover_from_eutra_prep_req);
 
 /*********************************************************************
     Message Name: DL Information Transfer
@@ -5437,9 +5514,26 @@ LIBLTE_ERROR_ENUM liblte_rrc_unpack_measurement_report_msg(LIBLTE_BIT_MSG_STRUCT
 *********************************************************************/
 // Defines
 // Enums
+typedef enum{
+    LIBLTE_RRC_DL_INFORMATION_TRANSFER_TYPE_NAS = 0,
+    LIBLTE_RRC_DL_INFORMATION_TRANSFER_TYPE_CDMA2000_1XRTT,
+    LIBLTE_RRC_DL_INFORMATION_TRANSFER_TYPE_CDMA2000_HRPD,
+    LIBLTE_RRC_DL_INFORMATION_TRANSFER_TYPE_N_ITEMS,
+}LIBLTE_RRC_DL_INFORMATION_TRANSFER_TYPE_ENUM;
+static const char liblte_rrc_dl_information_transfer_type_text[LIBLTE_RRC_DL_INFORMATION_TRANSFER_TYPE_N_ITEMS][20] = {"NAS",
+                                                                                                                       "CDMA2000-1XRTT",
+                                                                                                                       "CDMA2000-HRPD"};
 // Structs
+typedef struct{
+    LIBLTE_BYTE_MSG_STRUCT                       dedicated_info;
+    LIBLTE_RRC_DL_INFORMATION_TRANSFER_TYPE_ENUM dedicated_info_type;
+    uint8                                        rrc_transaction_id;
+}LIBLTE_RRC_DL_INFORMATION_TRANSFER_STRUCT;
 // Functions
-// FIXME
+LIBLTE_ERROR_ENUM liblte_rrc_pack_dl_information_transfer_msg(LIBLTE_RRC_DL_INFORMATION_TRANSFER_STRUCT *dl_info_transfer,
+                                                              LIBLTE_BIT_MSG_STRUCT                     *msg);
+LIBLTE_ERROR_ENUM liblte_rrc_unpack_dl_information_transfer_msg(LIBLTE_BIT_MSG_STRUCT                     *msg,
+                                                                LIBLTE_RRC_DL_INFORMATION_TRANSFER_STRUCT *dl_info_transfer);
 
 /*********************************************************************
     Message Name: CSFB Parameters Response CDMA2000
@@ -5453,8 +5547,14 @@ LIBLTE_ERROR_ENUM liblte_rrc_unpack_measurement_report_msg(LIBLTE_BIT_MSG_STRUCT
 // Defines
 // Enums
 // Structs
+typedef struct{
+    // FIXME
+}LIBLTE_RRC_CSFB_PARAMETERS_RESPONSE_CDMA2000_STRUCT;
 // Functions
-// FIXME
+LIBLTE_ERROR_ENUM liblte_rrc_pack_csfb_parameters_response_cdma2000_msg(LIBLTE_RRC_CSFB_PARAMETERS_RESPONSE_CDMA2000_STRUCT *csfb_params_resp_cdma2000,
+                                                                        LIBLTE_BIT_MSG_STRUCT                               *msg);
+LIBLTE_ERROR_ENUM liblte_rrc_unpack_csfb_parameters_response_cdma2000_msg(LIBLTE_BIT_MSG_STRUCT                               *msg,
+                                                                          LIBLTE_RRC_CSFB_PARAMETERS_RESPONSE_CDMA2000_STRUCT *csfb_params_resp_cdma2000);
 
 /*********************************************************************
     Message Name: CSFB Parameters Request CDMA2000
@@ -5507,8 +5607,14 @@ LIBLTE_ERROR_ENUM liblte_rrc_unpack_counter_check_response_msg(LIBLTE_BIT_MSG_ST
 // Defines
 // Enums
 // Structs
+typedef struct{
+    // FIXME
+}LIBLTE_RRC_COUNTER_CHECK_STRUCT;
 // Functions
-// FIXME
+LIBLTE_ERROR_ENUM liblte_rrc_pack_counter_check_msg(LIBLTE_RRC_COUNTER_CHECK_STRUCT *counter_check,
+                                                    LIBLTE_BIT_MSG_STRUCT           *msg);
+LIBLTE_ERROR_ENUM liblte_rrc_unpack_counter_check_msg(LIBLTE_BIT_MSG_STRUCT           *msg,
+                                                      LIBLTE_RRC_COUNTER_CHECK_STRUCT *counter_check);
 
 /*********************************************************************
     Message Name: BCCH BCH Message
@@ -5648,9 +5754,57 @@ LIBLTE_ERROR_ENUM liblte_rrc_unpack_dl_ccch_msg(LIBLTE_BIT_MSG_STRUCT         *m
 *********************************************************************/
 // Defines
 // Enums
+typedef enum{
+    LIBLTE_RRC_DL_DCCH_MSG_TYPE_CSFB_PARAMS_RESP_CDMA2000 = 0,
+    LIBLTE_RRC_DL_DCCH_MSG_TYPE_DL_INFO_TRANSFER,
+    LIBLTE_RRC_DL_DCCH_MSG_TYPE_HANDOVER_FROM_EUTRA_PREP_REQ,
+    LIBLTE_RRC_DL_DCCH_MSG_TYPE_MOBILITY_FROM_EUTRA_COMMAND,
+    LIBLTE_RRC_DL_DCCH_MSG_TYPE_RRC_CON_RECONFIG,
+    LIBLTE_RRC_DL_DCCH_MSG_TYPE_RRC_CON_RELEASE,
+    LIBLTE_RRC_DL_DCCH_MSG_TYPE_SECURITY_MODE_COMMAND,
+    LIBLTE_RRC_DL_DCCH_MSG_TYPE_UE_CAPABILITY_ENQUIRY,
+    LIBLTE_RRC_DL_DCCH_MSG_TYPE_COUNTER_CHECK,
+    LIBLTE_RRC_DL_DCCH_MSG_TYPE_UE_INFO_REQ,
+    LIBLTE_RRC_DL_DCCH_MSG_TYPE_LOGGED_MEASUREMENTS_CONFIG,
+    LIBLTE_RRC_DL_DCCH_MSG_TYPE_RN_RECONFIG,
+    LIBLTE_RRC_DL_DCCH_MSG_TYPE_N_ITEMS,
+}LIBLTE_RRC_DL_DCCH_MSG_TYPE_ENUM;
+static const char liblte_rrc_dl_dcch_msg_type_text[LIBLTE_RRC_DL_DCCH_MSG_TYPE_N_ITEMS][100] = {"CSFB Parameters Response CDMA2000",
+                                                                                                "DL Information Transfer",
+                                                                                                "Handover From EUTRA Preparation Request",
+                                                                                                "Mobility From EUTRA Command",
+                                                                                                "RRC Connection Reconfiguration",
+                                                                                                "RRC Connection Release",
+                                                                                                "Security Mode Command",
+                                                                                                "UE Capability Enquiry",
+                                                                                                "Counter Check",
+                                                                                                "UE Information Request",
+                                                                                                "Logged Measurements Configuration",
+                                                                                                "RN Reconfiguration"};
 // Structs
+typedef union{
+    LIBLTE_RRC_CSFB_PARAMETERS_RESPONSE_CDMA2000_STRUCT       csfb_params_resp_cdma2000;
+    LIBLTE_RRC_DL_INFORMATION_TRANSFER_STRUCT                 dl_info_transfer;
+    LIBLTE_RRC_HANDOVER_FROM_EUTRA_PREPARATION_REQUEST_STRUCT handover_from_eutra_prep_req;
+    LIBLTE_RRC_MOBILITY_FROM_EUTRA_COMMAND_STRUCT             mobility_from_eutra_cmd;
+    LIBLTE_RRC_CONNECTION_RECONFIGURATION_STRUCT              rrc_con_reconfig;
+    LIBLTE_RRC_CONNECTION_RELEASE_STRUCT                      rrc_con_release;
+    LIBLTE_RRC_SECURITY_MODE_COMMAND_STRUCT                   security_mode_cmd;
+    LIBLTE_RRC_UE_CAPABILITY_ENQUIRY_STRUCT                   ue_cap_enquiry;
+    LIBLTE_RRC_COUNTER_CHECK_STRUCT                           counter_check;
+    LIBLTE_RRC_UE_INFORMATION_REQUEST_STRUCT                  ue_info_req;
+    LIBLTE_RRC_LOGGED_MEASUREMENTS_CONFIGURATION_STRUCT       logged_measurements_config;
+    LIBLTE_RRC_RN_RECONFIGURATION_STRUCT                      rn_reconfig;
+}LIBLTE_RRC_DL_DCCH_MSG_TYPE_UNION;
+typedef struct{
+    LIBLTE_RRC_DL_DCCH_MSG_TYPE_UNION msg;
+    LIBLTE_RRC_DL_DCCH_MSG_TYPE_ENUM  msg_type;
+}LIBLTE_RRC_DL_DCCH_MSG_STRUCT;
 // Functions
-// FIXME
+LIBLTE_ERROR_ENUM liblte_rrc_pack_dl_dcch_msg(LIBLTE_RRC_DL_DCCH_MSG_STRUCT *dl_dcch_msg,
+                                              LIBLTE_BIT_MSG_STRUCT         *msg);
+LIBLTE_ERROR_ENUM liblte_rrc_unpack_dl_dcch_msg(LIBLTE_BIT_MSG_STRUCT         *msg,
+                                                LIBLTE_RRC_DL_DCCH_MSG_STRUCT *dl_dcch_msg);
 
 /*********************************************************************
     Message Name: UL CCCH Message

@@ -27,6 +27,7 @@
     11/09/2013    Ben Wojtowicz    Created file
     05/04/2014    Ben Wojtowicz    Added communication to MAC and PDCP.
     06/15/2014    Ben Wojtowicz    Using the latest LTE library.
+    08/03/2014    Ben Wojtowicz    Added transmit functionality.
 
 *******************************************************************************/
 
@@ -74,6 +75,7 @@ public:
 
     // External interface
     void update_sys_info(void);
+    void handle_retransmit(LIBLTE_RLC_AMD_PDU_STRUCT *amd, LTE_fdd_enb_user *user, LTE_fdd_enb_rb *rb);
 
 private:
     // Singleton
@@ -98,12 +100,17 @@ private:
     void handle_tm_pdu(LIBLTE_BIT_MSG_STRUCT *pdu, LTE_fdd_enb_user *user, LTE_fdd_enb_rb *rb);
     void handle_um_pdu(LIBLTE_BIT_MSG_STRUCT *pdu, LTE_fdd_enb_user *user, LTE_fdd_enb_rb *rb);
     void handle_am_pdu(LIBLTE_BIT_MSG_STRUCT *pdu, LTE_fdd_enb_user *user, LTE_fdd_enb_rb *rb);
+    void handle_status_pdu(LIBLTE_BIT_MSG_STRUCT *pdu, LTE_fdd_enb_user *user, LTE_fdd_enb_rb *rb);
 
     // PDCP Message Handlers
     void handle_sdu_ready(LTE_FDD_ENB_RLC_SDU_READY_MSG_STRUCT *sdu_ready);
     void handle_tm_sdu(LIBLTE_BIT_MSG_STRUCT *sdu, LTE_fdd_enb_user *user, LTE_fdd_enb_rb *rb);
     void handle_um_sdu(LIBLTE_BIT_MSG_STRUCT *sdu, LTE_fdd_enb_user *user, LTE_fdd_enb_rb *rb);
     void handle_am_sdu(LIBLTE_BIT_MSG_STRUCT *sdu, LTE_fdd_enb_user *user, LTE_fdd_enb_rb *rb);
+
+    // Message Constructors
+    void send_status_pdu(LIBLTE_RLC_STATUS_PDU_STRUCT *status_pdu, LTE_fdd_enb_user *user, LTE_fdd_enb_rb *rb);
+    void send_amd_pdu(LIBLTE_RLC_AMD_PDU_STRUCT *amd, LTE_fdd_enb_user *user, LTE_fdd_enb_rb *rb);
 
     // Parameters
     boost::mutex                sys_info_mutex;

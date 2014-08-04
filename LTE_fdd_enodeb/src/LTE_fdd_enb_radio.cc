@@ -37,6 +37,7 @@
     06/15/2014    Ben Wojtowicz    Changed fn_combo to current_tti.
     07/22/2014    Ben Wojtowicz    Added clock source as a configurable
                                    parameter.
+    08/03/2014    Ben Wojtowicz    Fixed clock_source bug.
 
 *******************************************************************************/
 
@@ -163,7 +164,6 @@ LTE_FDD_ENB_ERROR_ENUM LTE_fdd_enb_radio::start(void)
                 // Setup the USRP
                 usrp = uhd::usrp::multi_usrp::make(devs[selected_radio_idx-1]);
                 usrp->set_clock_source(clock_source);
-                usrp->set_time_source(clock_source);
                 usrp->set_master_clock_rate(30720000);
                 if(2.0 >= fabs(usrp->get_master_clock_rate() - 30720000.0))
                 {

@@ -35,6 +35,7 @@
                                    using the latest LTE library.
     07/22/2014    Ben Wojtowicz    Added clock source as a configurable
                                    parameter.
+    08/03/2014    Ben Wojtowicz    Added HSS support.
 
 *******************************************************************************/
 
@@ -636,6 +637,12 @@ void LTE_fdd_enb_interface::handle_ctrl_msg(std::string msg)
         interface->send_ctrl_error_msg(LTE_FDD_ENB_ERROR_NONE, "");
     }else if(std::string::npos != msg.find("help")){
         interface->handle_help();
+    }else if(std::string::npos != msg.find("add_user")){
+        interface->handle_add_user(msg.substr(msg.find("add_user")+sizeof("add_user"), std::string::npos));
+    }else if(std::string::npos != msg.find("del_user")){
+        interface->handle_del_user(msg.substr(msg.find("del_user")+sizeof("del_user"), std::string::npos));
+    }else if(std::string::npos != msg.find("print_users")){
+        interface->handle_print_users();
     }else{
         interface->send_ctrl_error_msg(LTE_FDD_ENB_ERROR_INVALID_COMMAND, "");
     }
@@ -1121,11 +1128,14 @@ void LTE_fdd_enb_interface::handle_help(void)
     send_ctrl_msg("\tSet parameters using write <param> <value> format");
     // Commands
     send_ctrl_msg("\tCommands:");
-    send_ctrl_msg("\t\tstart        - Constructs the system information and starts the eNB");
-    send_ctrl_msg("\t\tstop         - Stops the eNB");
-    send_ctrl_msg("\t\tshutdown     - Stops the eNB and exits");
-    send_ctrl_msg("\t\tconstruct_si - Constructs the new system information");
-    send_ctrl_msg("\t\thelp         - Prints this screen");
+    send_ctrl_msg("\t\tstart                                            - Constructs the system information and starts the eNB");
+    send_ctrl_msg("\t\tstop                                             - Stops the eNB");
+    send_ctrl_msg("\t\tshutdown                                         - Stops the eNB and exits");
+    send_ctrl_msg("\t\tconstruct_si                                     - Constructs the new system information");
+    send_ctrl_msg("\t\thelp                                             - Prints this screen");
+    send_ctrl_msg("\t\tadd_user imsi=<imsi> imei=<imei> k=<k> amf=<amf> - Adds a user user to the HSS (<imsi> and <imei> are 15 decimal digits, <k> is 32 hex digits, and <amf> is 4 hex digits)");
+    send_ctrl_msg("\t\tdel_user imsi=<imsi>                             - Deletes a user from the HSS");
+    send_ctrl_msg("\t\tprint_users                                      - Prints all the users in the HSS");
 
     // Radio Parameters
     send_ctrl_msg("\tRadio Parameters:");
@@ -1247,6 +1257,67 @@ void LTE_fdd_enb_interface::handle_help(void)
         }
         send_ctrl_msg(tmp_str);
     }
+}
+void LTE_fdd_enb_interface::handle_add_user(std::string msg)
+{
+    LTE_fdd_enb_hss *hss = LTE_fdd_enb_hss::get_instance();
+    std::string      imsi_str;
+    std::string      imei_str;
+    std::string      k_str;
+    std::string      amf_str;
+    bool             imsi_valid = true;
+    bool             imei_valid = true;
+    bool             k_valid    = true;
+    bool             amf_valid  = true;
+
+    // Extract IMSI and check
+    imsi_str   = msg.substr(msg.find("imsi")+sizeof("imsi"), std::string::npos);
+    imsi_str   = imsi_str.substr(0, imsi_str.find(" "));
+    imsi_valid = is_string_valid_as_number(imsi_str, 15, 0x9);
+
+    // Extract IMEI and check
+    imei_str   = msg.substr(msg.find("imei")+sizeof("imei"), std::string::npos);
+    imei_str   = imei_str.substr(0, imei_str.find(" "));
+    imei_valid = is_string_valid_as_number(imei_str, 15, 0x9);
+
+    // Extract K and check
+    k_str   = msg.substr(msg.find("k")+sizeof("k"), std::string::npos);
+    k_str   = k_str.substr(0, k_str.find(" "));
+    k_valid = is_string_valid_as_number(k_str, 32, 0xF);
+
+    // Extract AMF and check
+    amf_str   = msg.substr(msg.find("amf")+sizeof("amf"), std::string::npos);
+    amf_str   = amf_str.substr(0, amf_str.find(" "));
+    amf_valid = is_string_valid_as_number(amf_str, 2, 0xF);
+
+    if(imsi_valid && imei_valid && k_valid && amf_valid)
+    {
+        send_ctrl_error_msg(hss->add_user(imsi_str, imei_str, k_str, amf_str), "");
+    }else{
+        send_ctrl_error_msg(LTE_FDD_ENB_ERROR_INVALID_PARAM, "");
+    }
+}
+void LTE_fdd_enb_interface::handle_del_user(std::string msg)
+{
+    LTE_fdd_enb_hss *hss = LTE_fdd_enb_hss::get_instance();
+    std::string      imsi_str;
+
+    // Extract IMSI
+    imsi_str = msg.substr(msg.find("imsi")+sizeof("imsi"), std::string::npos);
+    imsi_str = imsi_str.substr(0, imsi_str.find(" "));
+
+    if(is_string_valid_as_number(imsi_str, 15, 0x9))
+    {
+        send_ctrl_error_msg(hss->del_user(imsi_str), "");
+    }else{
+        send_ctrl_error_msg(LTE_FDD_ENB_ERROR_INVALID_PARAM, "");
+    }
+}
+void LTE_fdd_enb_interface::handle_print_users(void)
+{
+    LTE_fdd_enb_hss *hss = LTE_fdd_enb_hss::get_instance();
+
+    send_ctrl_error_msg(LTE_FDD_ENB_ERROR_NONE, hss->print_all_users());
 }
 
 /*******************/
@@ -1419,4 +1490,40 @@ LTE_FDD_ENB_ERROR_ENUM LTE_fdd_enb_interface::write_value(LTE_FDD_ENB_VAR_STRUCT
     }
 
     return(err);
+}
+bool LTE_fdd_enb_interface::is_string_valid_as_number(std::string str,
+                                                      uint32      length,
+                                                      uint8       max_value)
+{
+    uint32      i;
+    const char *c_str = str.c_str();
+    bool        ret   = false;
+
+    if(length == str.length())
+    {
+        ret = true;
+
+        if(max_value < 0xA)
+        {
+            for(i=0; i<length; i++)
+            {
+                if(!(c_str[i] >= '0' && c_str[i] <= '9'))
+                {
+                    ret = false;
+                }
+            }
+        }else{
+            for(i=0; i<length; i++)
+            {
+                if(!((c_str[i] >= '0' && c_str[i] <= '9') ||
+                     (c_str[i] >= 'a' && c_str[i] <= 'f') ||
+                     (c_str[i] >= 'A' && c_str[i] <= 'F')))
+                {
+                    ret = false;
+                }
+            }
+        }
+    }
+
+    return(ret);
 }

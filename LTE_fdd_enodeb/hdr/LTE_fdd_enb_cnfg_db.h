@@ -27,6 +27,7 @@
     11/09/2013    Ben Wojtowicz    Created file
     01/18/2014    Ben Wojtowicz    Added set/get routines for uint32 values.
     03/26/2014    Ben Wojtowicz    Using the latest LTE library.
+    08/03/2014    Ben Wojtowicz    Added support for limiting PCAP output.
 
 *******************************************************************************/
 
@@ -85,6 +86,10 @@ typedef struct{
     bool                                    sib6_present;
     bool                                    sib7_present;
     bool                                    sib8_present;
+    bool                                    mib_pcap_sent;
+    bool                                    sib1_pcap_sent;
+    bool                                    sib_pcap_sent[4];
+    bool                                    continuous_sib_pcap;
 }LTE_FDD_ENB_SYS_INFO_STRUCT;
 
 /*******************************************************************************

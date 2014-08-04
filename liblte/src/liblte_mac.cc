@@ -29,6 +29,8 @@
     05/04/2014    Ben Wojtowicz    Added control element handling.
     06/15/2014    Ben Wojtowicz    Added support for padding LCIDs and breaking
                                    out max and min buffer sizes for BSRs.
+    08/03/2014    Ben Wojtowicz    Using the common value_2_bits and
+                                   bits_2_value functions.
 
 *******************************************************************************/
 
@@ -70,27 +72,6 @@ uint32 truncated_short_bsr_min_buffer_size[64] = {     0,      0,     10,     12
                                                    49759,  58255,  68201,  79864,  93479, 109439, 128125, 150000};
 
 /*******************************************************************************
-                              LOCAL FUNCTION PROTOTYPES
-*******************************************************************************/
-
-/*********************************************************************
-    Name: mac_value_2_bits
-
-    Description: Converts a value to a bit string
-*********************************************************************/
-void mac_value_2_bits(uint32   value,
-                      uint8  **bits,
-                      uint32   N_bits);
-
-/*********************************************************************
-    Name: mac_bits_2_value
-
-    Description: Converts a bit string to a value
-*********************************************************************/
-uint32 mac_bits_2_value(uint8  **bits,
-                        uint32   N_bits);
-
-/*******************************************************************************
                               CONTROL ELEMENT FUNCTIONS
 *******************************************************************************/
 
@@ -111,19 +92,19 @@ LIBLTE_ERROR_ENUM liblte_mac_pack_truncated_bsr_ce(LIBLTE_MAC_TRUNCATED_BSR_CE_S
     if(truncated_bsr != NULL &&
        ce_ptr        != NULL)
     {
-        mac_value_2_bits(truncated_bsr->lcg_id, ce_ptr, 2);
+        value_2_bits(truncated_bsr->lcg_id, ce_ptr, 2);
         for(i=0; i<64; i++)
         {
             if(truncated_bsr->max_buffer_size  > truncated_short_bsr_min_buffer_size[i] &&
                truncated_bsr->max_buffer_size <= truncated_short_bsr_max_buffer_size[i])
             {
-                mac_value_2_bits(i, ce_ptr, 6);
+                value_2_bits(i, ce_ptr, 6);
                 break;
             }
         }
         if(i == 64)
         {
-            mac_value_2_bits(63, ce_ptr, 6);
+            value_2_bits(63, ce_ptr, 6);
         }
 
         err = LIBLTE_SUCCESS;
@@ -140,8 +121,8 @@ LIBLTE_ERROR_ENUM liblte_mac_unpack_truncated_bsr_ce(uint8                      
     if(ce_ptr        != NULL &&
        truncated_bsr != NULL)
     {
-        truncated_bsr->lcg_id          = mac_bits_2_value(ce_ptr, 2);
-        buffer_size_idx                = mac_bits_2_value(ce_ptr, 6);
+        truncated_bsr->lcg_id          = bits_2_value(ce_ptr, 2);
+        buffer_size_idx                = bits_2_value(ce_ptr, 6);
         truncated_bsr->max_buffer_size = truncated_short_bsr_max_buffer_size[buffer_size_idx];
         truncated_bsr->min_buffer_size = truncated_short_bsr_min_buffer_size[buffer_size_idx];
 
@@ -186,10 +167,10 @@ LIBLTE_ERROR_ENUM liblte_mac_pack_long_bsr_ce(LIBLTE_MAC_LONG_BSR_CE_STRUCT  *lo
     if(long_bsr != NULL &&
        ce_ptr   != NULL)
     {
-        mac_value_2_bits(long_bsr->buffer_size_0, ce_ptr, 6);
-        mac_value_2_bits(long_bsr->buffer_size_1, ce_ptr, 6);
-        mac_value_2_bits(long_bsr->buffer_size_2, ce_ptr, 6);
-        mac_value_2_bits(long_bsr->buffer_size_3, ce_ptr, 6);
+        value_2_bits(long_bsr->buffer_size_0, ce_ptr, 6);
+        value_2_bits(long_bsr->buffer_size_1, ce_ptr, 6);
+        value_2_bits(long_bsr->buffer_size_2, ce_ptr, 6);
+        value_2_bits(long_bsr->buffer_size_3, ce_ptr, 6);
 
         err = LIBLTE_SUCCESS;
     }
@@ -204,10 +185,10 @@ LIBLTE_ERROR_ENUM liblte_mac_unpack_long_bsr_ce(uint8                         **
     if(ce_ptr   != NULL &&
        long_bsr != NULL)
     {
-        long_bsr->buffer_size_0 = mac_bits_2_value(ce_ptr, 6);
-        long_bsr->buffer_size_1 = mac_bits_2_value(ce_ptr, 6);
-        long_bsr->buffer_size_2 = mac_bits_2_value(ce_ptr, 6);
-        long_bsr->buffer_size_3 = mac_bits_2_value(ce_ptr, 6);
+        long_bsr->buffer_size_0 = bits_2_value(ce_ptr, 6);
+        long_bsr->buffer_size_1 = bits_2_value(ce_ptr, 6);
+        long_bsr->buffer_size_2 = bits_2_value(ce_ptr, 6);
+        long_bsr->buffer_size_3 = bits_2_value(ce_ptr, 6);
 
         err = LIBLTE_SUCCESS;
     }
@@ -230,7 +211,7 @@ LIBLTE_ERROR_ENUM liblte_mac_pack_c_rnti_ce(LIBLTE_MAC_C_RNTI_CE_STRUCT  *c_rnti
     if(c_rnti != NULL &&
        ce_ptr != NULL)
     {
-        mac_value_2_bits(c_rnti->c_rnti, ce_ptr, 16);
+        value_2_bits(c_rnti->c_rnti, ce_ptr, 16);
 
         err = LIBLTE_SUCCESS;
     }
@@ -245,7 +226,7 @@ LIBLTE_ERROR_ENUM liblte_mac_unpack_c_rnti_ce(uint8                       **ce_p
     if(ce_ptr != NULL &&
        c_rnti != NULL)
     {
-        c_rnti->c_rnti = mac_bits_2_value(ce_ptr, 16);
+        c_rnti->c_rnti = bits_2_value(ce_ptr, 16);
 
         err = LIBLTE_SUCCESS;
     }
@@ -277,8 +258,8 @@ LIBLTE_ERROR_ENUM liblte_mac_pack_ue_contention_resolution_id_ce(LIBLTE_MAC_UE_C
     if(ue_con_res_id != NULL &&
        ce_ptr        != NULL)
     {
-        mac_value_2_bits((uint32)(ue_con_res_id->id >> 32), ce_ptr, 16);
-        mac_value_2_bits((uint32)(ue_con_res_id->id),       ce_ptr, 32);
+        value_2_bits((uint32)(ue_con_res_id->id >> 32), ce_ptr, 16);
+        value_2_bits((uint32)(ue_con_res_id->id),       ce_ptr, 32);
 
         err = LIBLTE_SUCCESS;
     }
@@ -293,8 +274,8 @@ LIBLTE_ERROR_ENUM liblte_mac_unpack_ue_contention_resolution_id_ce(uint8        
     if(ce_ptr        != NULL &&
        ue_con_res_id != NULL)
     {
-        ue_con_res_id->id  = (uint64)mac_bits_2_value(ce_ptr, 16) << 32;
-        ue_con_res_id->id |= (uint64)mac_bits_2_value(ce_ptr, 32);
+        ue_con_res_id->id  = (uint64)bits_2_value(ce_ptr, 16) << 32;
+        ue_con_res_id->id |= (uint64)bits_2_value(ce_ptr, 32);
 
         err = LIBLTE_SUCCESS;
     }
@@ -317,9 +298,9 @@ LIBLTE_ERROR_ENUM liblte_mac_pack_ta_command_ce(LIBLTE_MAC_TA_COMMAND_CE_STRUCT 
     if(ta_command != NULL &&
        ce_ptr     != NULL)
     {
-        mac_value_2_bits(0,              ce_ptr, 1); // R
-        mac_value_2_bits(0,              ce_ptr, 1); // R
-        mac_value_2_bits(ta_command->ta, ce_ptr, 6);
+        value_2_bits(0,              ce_ptr, 1); // R
+        value_2_bits(0,              ce_ptr, 1); // R
+        value_2_bits(ta_command->ta, ce_ptr, 6);
 
         err = LIBLTE_SUCCESS;
     }
@@ -334,9 +315,9 @@ LIBLTE_ERROR_ENUM liblte_mac_unpack_ta_command_ce(uint8                         
     if(ce_ptr     != NULL &&
        ta_command != NULL)
     {
-        mac_bits_2_value(ce_ptr, 1); // R
-        mac_bits_2_value(ce_ptr, 1); // R
-        ta_command->ta = mac_bits_2_value(ce_ptr, 6);
+        bits_2_value(ce_ptr, 1); // R
+        bits_2_value(ce_ptr, 1); // R
+        ta_command->ta = bits_2_value(ce_ptr, 6);
 
         err = LIBLTE_SUCCESS;
     }
@@ -359,9 +340,9 @@ LIBLTE_ERROR_ENUM liblte_mac_pack_power_headroom_ce(LIBLTE_MAC_POWER_HEADROOM_CE
     if(power_headroom != NULL &&
        ce_ptr         != NULL)
     {
-        mac_value_2_bits(0,                  ce_ptr, 1); // R
-        mac_value_2_bits(0,                  ce_ptr, 1); // R
-        mac_value_2_bits(power_headroom->ph, ce_ptr, 6);
+        value_2_bits(0,                  ce_ptr, 1); // R
+        value_2_bits(0,                  ce_ptr, 1); // R
+        value_2_bits(power_headroom->ph, ce_ptr, 6);
 
         err = LIBLTE_SUCCESS;
     }
@@ -376,9 +357,9 @@ LIBLTE_ERROR_ENUM liblte_mac_unpack_power_headroom_ce(uint8                     
     if(ce_ptr         != NULL &&
        power_headroom != NULL)
     {
-        mac_bits_2_value(ce_ptr, 1); // R
-        mac_bits_2_value(ce_ptr, 1); // R
-        power_headroom->ph = mac_bits_2_value(ce_ptr, 6);
+        bits_2_value(ce_ptr, 1); // R
+        bits_2_value(ce_ptr, 1); // R
+        power_headroom->ph = bits_2_value(ce_ptr, 6);
 
         err = LIBLTE_SUCCESS;
     }
@@ -425,8 +406,8 @@ LIBLTE_ERROR_ENUM liblte_mac_pack_mch_scheduling_information_ce(LIBLTE_MAC_MCH_S
     {
         for(i=0; i<mch_sched_info->N_items; i++)
         {
-            mac_value_2_bits(mch_sched_info->lcid[i],     ce_ptr,  5);
-            mac_value_2_bits(mch_sched_info->stop_mch[i], ce_ptr, 11);
+            value_2_bits(mch_sched_info->lcid[i],     ce_ptr,  5);
+            value_2_bits(mch_sched_info->stop_mch[i], ce_ptr, 11);
         }
 
         err = LIBLTE_SUCCESS;
@@ -446,8 +427,8 @@ LIBLTE_ERROR_ENUM liblte_mac_unpack_mch_scheduling_information_ce(uint8         
     {
         for(i=0; i<mch_sched_info->N_items; i++)
         {
-            mch_sched_info->lcid[i]     = mac_bits_2_value(ce_ptr,  5);
-            mch_sched_info->stop_mch[i] = mac_bits_2_value(ce_ptr, 11);
+            mch_sched_info->lcid[i]     = bits_2_value(ce_ptr,  5);
+            mch_sched_info->stop_mch[i] = bits_2_value(ce_ptr, 11);
         }
 
         err = LIBLTE_SUCCESS;
@@ -471,14 +452,14 @@ LIBLTE_ERROR_ENUM liblte_mac_pack_activation_deactivation_ce(LIBLTE_MAC_ACTIVATI
     if(act_deact != NULL &&
        ce_ptr    != NULL)
     {
-        mac_value_2_bits(act_deact->c7, ce_ptr, 1);
-        mac_value_2_bits(act_deact->c6, ce_ptr, 1);
-        mac_value_2_bits(act_deact->c5, ce_ptr, 1);
-        mac_value_2_bits(act_deact->c4, ce_ptr, 1);
-        mac_value_2_bits(act_deact->c3, ce_ptr, 1);
-        mac_value_2_bits(act_deact->c2, ce_ptr, 1);
-        mac_value_2_bits(act_deact->c1, ce_ptr, 1);
-        mac_value_2_bits(0,             ce_ptr, 1); // R
+        value_2_bits(act_deact->c7, ce_ptr, 1);
+        value_2_bits(act_deact->c6, ce_ptr, 1);
+        value_2_bits(act_deact->c5, ce_ptr, 1);
+        value_2_bits(act_deact->c4, ce_ptr, 1);
+        value_2_bits(act_deact->c3, ce_ptr, 1);
+        value_2_bits(act_deact->c2, ce_ptr, 1);
+        value_2_bits(act_deact->c1, ce_ptr, 1);
+        value_2_bits(0,             ce_ptr, 1); // R
 
         err = LIBLTE_SUCCESS;
     }
@@ -493,14 +474,14 @@ LIBLTE_ERROR_ENUM liblte_mac_unpack_activation_deactivation_ce(uint8            
     if(ce_ptr    != NULL &&
        act_deact != NULL)
     {
-        act_deact->c7 = mac_bits_2_value(ce_ptr, 1);
-        act_deact->c6 = mac_bits_2_value(ce_ptr, 1);
-        act_deact->c5 = mac_bits_2_value(ce_ptr, 1);
-        act_deact->c4 = mac_bits_2_value(ce_ptr, 1);
-        act_deact->c3 = mac_bits_2_value(ce_ptr, 1);
-        act_deact->c2 = mac_bits_2_value(ce_ptr, 1);
-        act_deact->c1 = mac_bits_2_value(ce_ptr, 1);
-        mac_bits_2_value(ce_ptr, 1); // R
+        act_deact->c7 = bits_2_value(ce_ptr, 1);
+        act_deact->c6 = bits_2_value(ce_ptr, 1);
+        act_deact->c5 = bits_2_value(ce_ptr, 1);
+        act_deact->c4 = bits_2_value(ce_ptr, 1);
+        act_deact->c3 = bits_2_value(ce_ptr, 1);
+        act_deact->c2 = bits_2_value(ce_ptr, 1);
+        act_deact->c1 = bits_2_value(ce_ptr, 1);
+        bits_2_value(ce_ptr, 1); // R
 
         err = LIBLTE_SUCCESS;
     }
@@ -533,15 +514,15 @@ LIBLTE_ERROR_ENUM liblte_mac_pack_mac_pdu(LIBLTE_MAC_PDU_STRUCT *pdu,
         // Pack the subheaders
         for(i=0; i<pdu->N_subheaders; i++)
         {
-            mac_value_2_bits(0, &msg_ptr, 1); // R
-            mac_value_2_bits(0, &msg_ptr, 1); // R
+            value_2_bits(0, &msg_ptr, 1); // R
+            value_2_bits(0, &msg_ptr, 1); // R
             if(i != pdu->N_subheaders-1)
             {
-                mac_value_2_bits(1, &msg_ptr, 1); // E
+                value_2_bits(1, &msg_ptr, 1); // E
             }else{
-                mac_value_2_bits(0, &msg_ptr, 1); // E
+                value_2_bits(0, &msg_ptr, 1); // E
             }
-            mac_value_2_bits(pdu->subheader[i].lcid, &msg_ptr, 5);
+            value_2_bits(pdu->subheader[i].lcid, &msg_ptr, 5);
             if(LIBLTE_MAC_CHAN_TYPE_DLSCH == pdu->chan_type)
             {
                 if(!(LIBLTE_MAC_DLSCH_ACTIVATION_DEACTIVATION_LCID     == pdu->subheader[i].lcid ||
@@ -554,11 +535,11 @@ LIBLTE_ERROR_ENUM liblte_mac_pack_mac_pdu(LIBLTE_MAC_PDU_STRUCT *pdu,
                     {
                         if((pdu->subheader[i].payload.sdu.N_bits/8) < 128)
                         {
-                            mac_value_2_bits(0,                                      &msg_ptr, 1); // F
-                            mac_value_2_bits(pdu->subheader[i].payload.sdu.N_bits/8, &msg_ptr, 7);
+                            value_2_bits(0,                                      &msg_ptr, 1); // F
+                            value_2_bits(pdu->subheader[i].payload.sdu.N_bits/8, &msg_ptr, 7);
                         }else{
-                            mac_value_2_bits(1,                                      &msg_ptr,  1); // F
-                            mac_value_2_bits(pdu->subheader[i].payload.sdu.N_bits/8, &msg_ptr, 15);
+                            value_2_bits(1,                                      &msg_ptr,  1); // F
+                            value_2_bits(pdu->subheader[i].payload.sdu.N_bits/8, &msg_ptr, 15);
                         }
                     }
                 }
@@ -576,11 +557,11 @@ LIBLTE_ERROR_ENUM liblte_mac_pack_mac_pdu(LIBLTE_MAC_PDU_STRUCT *pdu,
                     {
                         if((pdu->subheader[i].payload.sdu.N_bits/8) < 128)
                         {
-                            mac_value_2_bits(0,                                      &msg_ptr, 1); // F
-                            mac_value_2_bits(pdu->subheader[i].payload.sdu.N_bits/8, &msg_ptr, 7);
+                            value_2_bits(0,                                      &msg_ptr, 1); // F
+                            value_2_bits(pdu->subheader[i].payload.sdu.N_bits/8, &msg_ptr, 7);
                         }else{
-                            mac_value_2_bits(1,                                      &msg_ptr,  1); // F
-                            mac_value_2_bits(pdu->subheader[i].payload.sdu.N_bits/8, &msg_ptr, 15);
+                            value_2_bits(1,                                      &msg_ptr,  1); // F
+                            value_2_bits(pdu->subheader[i].payload.sdu.N_bits/8, &msg_ptr, 15);
                         }
                     }
                 }
@@ -591,11 +572,11 @@ LIBLTE_ERROR_ENUM liblte_mac_pack_mac_pdu(LIBLTE_MAC_PDU_STRUCT *pdu,
                     {
                         if((pdu->subheader[i].payload.mch_sched_info.N_items*2) < 128)
                         {
-                            mac_value_2_bits(0,                                                  &msg_ptr, 1); // F
-                            mac_value_2_bits(pdu->subheader[i].payload.mch_sched_info.N_items*2, &msg_ptr, 7);
+                            value_2_bits(0,                                                  &msg_ptr, 1); // F
+                            value_2_bits(pdu->subheader[i].payload.mch_sched_info.N_items*2, &msg_ptr, 7);
                         }else{
-                            mac_value_2_bits(1,                                                  &msg_ptr,  1); // F
-                            mac_value_2_bits(pdu->subheader[i].payload.mch_sched_info.N_items*2, &msg_ptr, 15);
+                            value_2_bits(1,                                                  &msg_ptr,  1); // F
+                            value_2_bits(pdu->subheader[i].payload.mch_sched_info.N_items*2, &msg_ptr, 15);
                         }
                     }
                 }else{
@@ -603,11 +584,11 @@ LIBLTE_ERROR_ENUM liblte_mac_pack_mac_pdu(LIBLTE_MAC_PDU_STRUCT *pdu,
                     {
                         if((pdu->subheader[i].payload.sdu.N_bits/8) < 128)
                         {
-                            mac_value_2_bits(0,                                      &msg_ptr, 1); // F
-                            mac_value_2_bits(pdu->subheader[i].payload.sdu.N_bits/8, &msg_ptr, 7);
+                            value_2_bits(0,                                      &msg_ptr, 1); // F
+                            value_2_bits(pdu->subheader[i].payload.sdu.N_bits/8, &msg_ptr, 7);
                         }else{
-                            mac_value_2_bits(1,                                      &msg_ptr,  1); // F
-                            mac_value_2_bits(pdu->subheader[i].payload.sdu.N_bits/8, &msg_ptr, 15);
+                            value_2_bits(1,                                      &msg_ptr,  1); // F
+                            value_2_bits(pdu->subheader[i].payload.sdu.N_bits/8, &msg_ptr, 15);
                         }
                     }
                 }
@@ -628,6 +609,8 @@ LIBLTE_ERROR_ENUM liblte_mac_pack_mac_pdu(LIBLTE_MAC_PDU_STRUCT *pdu,
                     liblte_mac_pack_ta_command_ce(&pdu->subheader[i].payload.ta_command, &msg_ptr);
                 }else if(LIBLTE_MAC_DLSCH_DRX_COMMAND_LCID == pdu->subheader[i].lcid){
                     // No content for DRX Command CE
+                }else if(LIBLTE_MAC_DLSCH_PADDING_LCID == pdu->subheader[i].lcid){
+                    // No content for PADDING CE
                 }else{ // SDU
                     memcpy(msg_ptr, pdu->subheader[i].payload.sdu.msg, pdu->subheader[i].payload.sdu.N_bits);
                     msg_ptr += pdu->subheader[i].payload.sdu.N_bits;
@@ -682,9 +665,9 @@ LIBLTE_ERROR_ENUM liblte_mac_unpack_mac_pdu(LIBLTE_BIT_MSG_STRUCT *msg,
         pdu->N_subheaders = 0;
         while(e_bit)
         {
-            mac_bits_2_value(&msg_ptr, 2); // R
-            e_bit = mac_bits_2_value(&msg_ptr, 1);
-            pdu->subheader[pdu->N_subheaders].lcid = mac_bits_2_value(&msg_ptr, 5);
+            bits_2_value(&msg_ptr, 2); // R
+            e_bit = bits_2_value(&msg_ptr, 1);
+            pdu->subheader[pdu->N_subheaders].lcid = bits_2_value(&msg_ptr, 5);
 
             if(LIBLTE_MAC_CHAN_TYPE_DLSCH == pdu->chan_type)
             {
@@ -696,11 +679,11 @@ LIBLTE_ERROR_ENUM liblte_mac_unpack_mac_pdu(LIBLTE_BIT_MSG_STRUCT *msg,
                 {
                     if(e_bit)
                     {
-                        if(mac_bits_2_value(&msg_ptr, 1)) // F
+                        if(bits_2_value(&msg_ptr, 1)) // F
                         {
-                            pdu->subheader[pdu->N_subheaders].payload.sdu.N_bits = mac_bits_2_value(&msg_ptr, 15) * 8;
+                            pdu->subheader[pdu->N_subheaders].payload.sdu.N_bits = bits_2_value(&msg_ptr, 15) * 8;
                         }else{
-                            pdu->subheader[pdu->N_subheaders].payload.sdu.N_bits = mac_bits_2_value(&msg_ptr, 7) * 8;
+                            pdu->subheader[pdu->N_subheaders].payload.sdu.N_bits = bits_2_value(&msg_ptr, 7) * 8;
                         }
                     }else{
                         pdu->subheader[pdu->N_subheaders].payload.sdu.N_bits = 0;
@@ -718,11 +701,11 @@ LIBLTE_ERROR_ENUM liblte_mac_unpack_mac_pdu(LIBLTE_BIT_MSG_STRUCT *msg,
                            LIBLTE_MAC_ULSCH_PADDING_LCID               == pdu->subheader[pdu->N_subheaders].lcid)){
                     if(e_bit)
                     {
-                        if(mac_bits_2_value(&msg_ptr, 1)) // F
+                        if(bits_2_value(&msg_ptr, 1)) // F
                         {
-                            pdu->subheader[pdu->N_subheaders].payload.sdu.N_bits = mac_bits_2_value(&msg_ptr, 15) * 8;
+                            pdu->subheader[pdu->N_subheaders].payload.sdu.N_bits = bits_2_value(&msg_ptr, 15) * 8;
                         }else{
-                            pdu->subheader[pdu->N_subheaders].payload.sdu.N_bits = mac_bits_2_value(&msg_ptr, 7) * 8;
+                            pdu->subheader[pdu->N_subheaders].payload.sdu.N_bits = bits_2_value(&msg_ptr, 7) * 8;
                         }
                     }else{
                         pdu->subheader[pdu->N_subheaders].payload.sdu.N_bits = 0;
@@ -733,11 +716,11 @@ LIBLTE_ERROR_ENUM liblte_mac_unpack_mac_pdu(LIBLTE_BIT_MSG_STRUCT *msg,
                 {
                     if(e_bit)
                     {
-                        if(mac_bits_2_value(&msg_ptr, 1)) // F
+                        if(bits_2_value(&msg_ptr, 1)) // F
                         {
-                            pdu->subheader[pdu->N_subheaders].payload.mch_sched_info.N_items = mac_bits_2_value(&msg_ptr, 15) / 2;
+                            pdu->subheader[pdu->N_subheaders].payload.mch_sched_info.N_items = bits_2_value(&msg_ptr, 15) / 2;
                         }else{
-                            pdu->subheader[pdu->N_subheaders].payload.mch_sched_info.N_items = mac_bits_2_value(&msg_ptr, 7) / 2;
+                            pdu->subheader[pdu->N_subheaders].payload.mch_sched_info.N_items = bits_2_value(&msg_ptr, 7) / 2;
                         }
                     }else{
                         pdu->subheader[pdu->N_subheaders].payload.mch_sched_info.N_items = 0;
@@ -745,11 +728,11 @@ LIBLTE_ERROR_ENUM liblte_mac_unpack_mac_pdu(LIBLTE_BIT_MSG_STRUCT *msg,
                 }else{
                     if(e_bit)
                     {
-                        if(mac_bits_2_value(&msg_ptr, 1)) // F
+                        if(bits_2_value(&msg_ptr, 1)) // F
                         {
-                            pdu->subheader[pdu->N_subheaders].payload.sdu.N_bits = mac_bits_2_value(&msg_ptr, 15) * 8;
+                            pdu->subheader[pdu->N_subheaders].payload.sdu.N_bits = bits_2_value(&msg_ptr, 15) * 8;
                         }else{
-                            pdu->subheader[pdu->N_subheaders].payload.sdu.N_bits = mac_bits_2_value(&msg_ptr, 7) * 8;
+                            pdu->subheader[pdu->N_subheaders].payload.sdu.N_bits = bits_2_value(&msg_ptr, 7) * 8;
                         }
                     }else{
                         pdu->subheader[pdu->N_subheaders].payload.sdu.N_bits = 0;
@@ -865,28 +848,28 @@ LIBLTE_ERROR_ENUM liblte_mac_pack_random_access_response_pdu(LIBLTE_MAC_RAR_STRU
         if(LIBLTE_MAC_RAR_HEADER_TYPE_BI == rar->hdr_type)
         {
             // Pack Header
-            mac_value_2_bits(0,             &pdu_ptr, 1); // E
-            mac_value_2_bits(rar->hdr_type, &pdu_ptr, 1);
-            mac_value_2_bits(0,             &pdu_ptr, 2); // R
-            mac_value_2_bits(rar->BI,       &pdu_ptr, 4);
+            value_2_bits(0,             &pdu_ptr, 1); // E
+            value_2_bits(rar->hdr_type, &pdu_ptr, 1);
+            value_2_bits(0,             &pdu_ptr, 2); // R
+            value_2_bits(rar->BI,       &pdu_ptr, 4);
 
             err = LIBLTE_SUCCESS;
         }else if(LIBLTE_MAC_RAR_HEADER_TYPE_RAPID == rar->hdr_type){
             // Pack Header
-            mac_value_2_bits(0,             &pdu_ptr, 1); // E
-            mac_value_2_bits(rar->hdr_type, &pdu_ptr, 1);
-            mac_value_2_bits(rar->RAPID,    &pdu_ptr, 6);
+            value_2_bits(0,             &pdu_ptr, 1); // E
+            value_2_bits(rar->hdr_type, &pdu_ptr, 1);
+            value_2_bits(rar->RAPID,    &pdu_ptr, 6);
 
             // Pack RAR
-            mac_value_2_bits(0,                   &pdu_ptr, 1); // R
-            mac_value_2_bits(rar->timing_adv_cmd, &pdu_ptr, 11);
-            mac_value_2_bits(rar->hopping_flag,   &pdu_ptr, 1);
-            mac_value_2_bits(rar->rba,            &pdu_ptr, 10); // FIXME
-            mac_value_2_bits(rar->mcs,            &pdu_ptr, 4); // FIXME
-            mac_value_2_bits(rar->tpc_command,    &pdu_ptr, 3);
-            mac_value_2_bits(rar->ul_delay,       &pdu_ptr, 1);
-            mac_value_2_bits(rar->csi_req,        &pdu_ptr, 1);
-            mac_value_2_bits(rar->temp_c_rnti,    &pdu_ptr, 16);
+            value_2_bits(0,                   &pdu_ptr, 1); // R
+            value_2_bits(rar->timing_adv_cmd, &pdu_ptr, 11);
+            value_2_bits(rar->hopping_flag,   &pdu_ptr, 1);
+            value_2_bits(rar->rba,            &pdu_ptr, 10); // FIXME
+            value_2_bits(rar->mcs,            &pdu_ptr, 4); // FIXME
+            value_2_bits(rar->tpc_command,    &pdu_ptr, 3);
+            value_2_bits(rar->ul_delay,       &pdu_ptr, 1);
+            value_2_bits(rar->csi_req,        &pdu_ptr, 1);
+            value_2_bits(rar->temp_c_rnti,    &pdu_ptr, 16);
 
             err = LIBLTE_SUCCESS;
         }
@@ -905,74 +888,32 @@ LIBLTE_ERROR_ENUM liblte_mac_unpack_random_access_response_pdu(LIBLTE_BIT_MSG_ST
     if(pdu != NULL &&
        rar != NULL)
     {
-        mac_bits_2_value(&pdu_ptr, 1); // E
-        rar->hdr_type = (LIBLTE_MAC_RAR_HEADER_TYPE_ENUM)mac_bits_2_value(&pdu_ptr, 1);
+        bits_2_value(&pdu_ptr, 1); // E
+        rar->hdr_type = (LIBLTE_MAC_RAR_HEADER_TYPE_ENUM)bits_2_value(&pdu_ptr, 1);
         if(LIBLTE_MAC_RAR_HEADER_TYPE_BI == rar->hdr_type)
         {
-            mac_bits_2_value(&pdu_ptr, 2); // R
-            rar->BI = mac_bits_2_value(&pdu_ptr, 4);
+            bits_2_value(&pdu_ptr, 2); // R
+            rar->BI = bits_2_value(&pdu_ptr, 4);
 
             err = LIBLTE_SUCCESS;
         }else if(LIBLTE_MAC_RAR_HEADER_TYPE_RAPID == rar->hdr_type){
             // Unpack header
-            rar->RAPID = mac_bits_2_value(&pdu_ptr, 6);
+            rar->RAPID = bits_2_value(&pdu_ptr, 6);
 
             // Unpack RAR
-            mac_bits_2_value(&pdu_ptr, 1); // R
-            rar->timing_adv_cmd = mac_bits_2_value(&pdu_ptr, 11);
-            rar->hopping_flag   = (LIBLTE_MAC_RAR_HOPPING_ENUM)mac_bits_2_value(&pdu_ptr, 1);
-            rar->rba            = mac_bits_2_value(&pdu_ptr, 10); // FIXME
-            rar->mcs            = mac_bits_2_value(&pdu_ptr, 4); // FIXME
-            rar->tpc_command    = (LIBLTE_MAC_RAR_TPC_COMMAND_ENUM)mac_bits_2_value(&pdu_ptr, 3);
-            rar->ul_delay       = (LIBLTE_MAC_RAR_UL_DELAY_ENUM)mac_bits_2_value(&pdu_ptr, 1);
-            rar->csi_req        = (LIBLTE_MAC_RAR_CSI_REQ_ENUM)mac_bits_2_value(&pdu_ptr, 1);
-            rar->temp_c_rnti    = mac_bits_2_value(&pdu_ptr, 16);
+            bits_2_value(&pdu_ptr, 1); // R
+            rar->timing_adv_cmd = bits_2_value(&pdu_ptr, 11);
+            rar->hopping_flag   = (LIBLTE_MAC_RAR_HOPPING_ENUM)bits_2_value(&pdu_ptr, 1);
+            rar->rba            = bits_2_value(&pdu_ptr, 10); // FIXME
+            rar->mcs            = bits_2_value(&pdu_ptr, 4); // FIXME
+            rar->tpc_command    = (LIBLTE_MAC_RAR_TPC_COMMAND_ENUM)bits_2_value(&pdu_ptr, 3);
+            rar->ul_delay       = (LIBLTE_MAC_RAR_UL_DELAY_ENUM)bits_2_value(&pdu_ptr, 1);
+            rar->csi_req        = (LIBLTE_MAC_RAR_CSI_REQ_ENUM)bits_2_value(&pdu_ptr, 1);
+            rar->temp_c_rnti    = bits_2_value(&pdu_ptr, 16);
 
             err = LIBLTE_SUCCESS;
         }
     }
 
     return(err);
-}
-
-/*******************************************************************************
-                              LOCAL FUNCTIONS
-*******************************************************************************/
-
-/*********************************************************************
-    Name: mac_value_2_bits
-
-    Description: Converts a value to a bit string
-*********************************************************************/
-void mac_value_2_bits(uint32   value,
-                      uint8  **bits,
-                      uint32   N_bits)
-{
-    uint32 i;
-
-    for(i=0; i<N_bits; i++)
-    {
-        (*bits)[i] = (value >> (N_bits-i-1)) & 0x1;
-    }
-    *bits += N_bits;
-}
-
-/*********************************************************************
-    Name: mac_bits_2_value
-
-    Description: Converts a bit string to a value
-*********************************************************************/
-uint32 mac_bits_2_value(uint8  **bits,
-                        uint32   N_bits)
-{
-    uint32 value = 0;
-    uint32 i;
-
-    for(i=0; i<N_bits; i++)
-    {
-        value |= (*bits)[i] << (N_bits-i-1);
-    }
-    *bits += N_bits;
-
-    return(value);
 }

@@ -37,6 +37,7 @@
     05/04/2014    Ben Wojtowicz    Added PCAP support, PHICH support, and timer
                                    support.
     06/15/2014    Ben Wojtowicz    Changed fn_combo to current_tti.
+    08/03/2014    Ben Wojtowicz    Added support for limiting PCAP output.
 
 *******************************************************************************/
 
@@ -412,15 +413,19 @@ void LTE_fdd_enb_phy::handle_dl_schedule(LTE_FDD_ENB_DL_SCHEDULE_MSG_STRUCT *dl_
             late_subfr = false;
         }
     }else{
-        interface->send_debug_msg(LTE_FDD_ENB_DEBUG_TYPE_INFO,
-                                  LTE_FDD_ENB_DEBUG_LEVEL_PHY,
-                                  __FILE__,
-                                  __LINE__,
-                                  "Received PDSCH schedule from MAC CURRENT_TTI:MAC=%u,PHY=%u N_dl_allocs=%u N_ul_allocs=%u",
-                                  dl_sched->current_tti,
-                                  dl_current_tti,
-                                  dl_sched->dl_allocations.N_alloc,
-                                  dl_sched->ul_allocations.N_alloc);
+        if(dl_sched->dl_allocations.N_alloc ||
+           dl_sched->ul_allocations.N_alloc)
+        {
+            interface->send_debug_msg(LTE_FDD_ENB_DEBUG_TYPE_INFO,
+                                      LTE_FDD_ENB_DEBUG_LEVEL_PHY,
+                                      __FILE__,
+                                      __LINE__,
+                                      "Received PDSCH schedule from MAC CURRENT_TTI:MAC=%u,PHY=%u N_dl_allocs=%u N_ul_allocs=%u",
+                                      dl_sched->current_tti,
+                                      dl_current_tti,
+                                      dl_sched->dl_allocations.N_alloc,
+                                      dl_sched->ul_allocations.N_alloc);
+        }
 
         memcpy(&dl_schedule[dl_sched->current_tti%10], dl_sched, sizeof(LTE_FDD_ENB_DL_SCHEDULE_MSG_STRUCT));
 
@@ -442,14 +447,17 @@ void LTE_fdd_enb_phy::handle_ul_schedule(LTE_FDD_ENB_UL_SCHEDULE_MSG_STRUCT *ul_
                                   ul_sched->current_tti,
                                   ul_current_tti);
     }else{
-        interface->send_debug_msg(LTE_FDD_ENB_DEBUG_TYPE_INFO,
-                                  LTE_FDD_ENB_DEBUG_LEVEL_PHY,
-                                  __FILE__,
-                                  __LINE__,
-                                  "Received PUSCH schedule from MAC CURRENT_TTI:MAC=%u,PHY=%u N_ul_decodes=%u",
-                                  ul_sched->current_tti,
-                                  ul_current_tti,
-                                  ul_sched->decodes.N_alloc);
+        if(ul_sched->decodes.N_alloc)
+        {
+            interface->send_debug_msg(LTE_FDD_ENB_DEBUG_TYPE_INFO,
+                                      LTE_FDD_ENB_DEBUG_LEVEL_PHY,
+                                      __FILE__,
+                                      __LINE__,
+                                      "Received PUSCH schedule from MAC CURRENT_TTI:MAC=%u,PHY=%u N_ul_decodes=%u",
+                                      ul_sched->current_tti,
+                                      ul_current_tti,
+                                      ul_sched->decodes.N_alloc);
+        }
 
         memcpy(&ul_schedule[ul_sched->current_tti%10], ul_sched, sizeof(LTE_FDD_ENB_UL_SCHEDULE_MSG_STRUCT));
     }
@@ -508,11 +516,18 @@ void LTE_fdd_enb_phy::process_dl(LTE_FDD_ENB_RADIO_TX_BUF_STRUCT *tx_buf)
         sys_info.mib.sfn_div_4 = sfn/4;
         liblte_rrc_pack_bcch_bch_msg(&sys_info.mib,
                                      &dl_rrc_msg);
-        interface->send_pcap_msg(LTE_FDD_ENB_PCAP_DIRECTION_DL,
-                                 0xFFFFFFFF,
-                                 dl_current_tti,
-                                 dl_rrc_msg.msg,
-                                 dl_rrc_msg.N_bits);
+        if(!sys_info.mib_pcap_sent)
+        {
+            interface->send_pcap_msg(LTE_FDD_ENB_PCAP_DIRECTION_DL,
+                                     0xFFFFFFFF,
+                                     dl_current_tti,
+                                     dl_rrc_msg.msg,
+                                     dl_rrc_msg.N_bits);
+            if(!sys_info.continuous_sib_pcap)
+            {
+                sys_info.mib_pcap_sent = true;
+            }
+        }
         liblte_phy_bch_channel_encode(phy_struct,
                                       dl_rrc_msg.msg,
                                       dl_rrc_msg.N_bits,
@@ -528,11 +543,18 @@ void LTE_fdd_enb_phy::process_dl(LTE_FDD_ENB_RADIO_TX_BUF_STRUCT *tx_buf)
        0 == (sfn % 2))
     {
         // SIB1
-        interface->send_pcap_msg(LTE_FDD_ENB_PCAP_DIRECTION_DL,
-                                 LIBLTE_MAC_SI_RNTI,
-                                 dl_current_tti,
-                                 sys_info.sib1_alloc.msg.msg,
-                                 sys_info.sib1_alloc.msg.N_bits);
+        if(!sys_info.sib1_pcap_sent)
+        {
+            interface->send_pcap_msg(LTE_FDD_ENB_PCAP_DIRECTION_DL,
+                                     LIBLTE_MAC_SI_RNTI,
+                                     dl_current_tti,
+                                     sys_info.sib1_alloc.msg.msg,
+                                     sys_info.sib1_alloc.msg.N_bits);
+            if(!sys_info.continuous_sib_pcap)
+            {
+                sys_info.sib1_pcap_sent = true;
+            }
+        }
         memcpy(&pdcch.alloc[pdcch.N_alloc], &sys_info.sib1_alloc, sizeof(LIBLTE_PHY_ALLOCATION_STRUCT));
         liblte_phy_get_tbs_mcs_and_n_prb_for_dl(pdcch.alloc[pdcch.N_alloc].msg.N_bits,
                                                 dl_subframe.num,
@@ -549,11 +571,18 @@ void LTE_fdd_enb_phy::process_dl(LTE_FDD_ENB_RADIO_TX_BUF_STRUCT *tx_buf)
        ((0 * sys_info.si_win_len)/10) == (sfn % sys_info.si_periodicity_T))
     {
         // SIs in 1st scheduling info list entry
-        interface->send_pcap_msg(LTE_FDD_ENB_PCAP_DIRECTION_DL,
-                                 LIBLTE_MAC_SI_RNTI,
-                                 dl_current_tti,
-                                 sys_info.sib_alloc[0].msg.msg,
-                                 sys_info.sib_alloc[0].msg.N_bits);
+        if(!sys_info.sib_pcap_sent[0])
+        {
+            interface->send_pcap_msg(LTE_FDD_ENB_PCAP_DIRECTION_DL,
+                                     LIBLTE_MAC_SI_RNTI,
+                                     dl_current_tti,
+                                     sys_info.sib_alloc[0].msg.msg,
+                                     sys_info.sib_alloc[0].msg.N_bits);
+            if(!sys_info.continuous_sib_pcap)
+            {
+                sys_info.sib_pcap_sent[0] = true;
+            }
+        }
         memcpy(&pdcch.alloc[pdcch.N_alloc], &sys_info.sib_alloc[0], sizeof(LIBLTE_PHY_ALLOCATION_STRUCT));
         // FIXME: This was a hack to allow SIB2 decoding with 1.4MHz BW due to overlap with MIB
         if(LIBLTE_SUCCESS == liblte_phy_get_tbs_mcs_and_n_prb_for_dl(pdcch.alloc[pdcch.N_alloc].msg.N_bits,
@@ -573,11 +602,18 @@ void LTE_fdd_enb_phy::process_dl(LTE_FDD_ENB_RADIO_TX_BUF_STRUCT *tx_buf)
            (i * sys_info.si_win_len)%10   == dl_subframe.num                  &&
            ((i * sys_info.si_win_len)/10) == (sfn % sys_info.si_periodicity_T))
         {
-            interface->send_pcap_msg(LTE_FDD_ENB_PCAP_DIRECTION_DL,
-                                     LIBLTE_MAC_SI_RNTI,
-                                     dl_current_tti,
-                                     sys_info.sib_alloc[i].msg.msg,
-                                     sys_info.sib_alloc[i].msg.N_bits);
+            if(!sys_info.sib_pcap_sent[i])
+            {
+                interface->send_pcap_msg(LTE_FDD_ENB_PCAP_DIRECTION_DL,
+                                         LIBLTE_MAC_SI_RNTI,
+                                         dl_current_tti,
+                                         sys_info.sib_alloc[i].msg.msg,
+                                         sys_info.sib_alloc[i].msg.N_bits);
+                if(!sys_info.continuous_sib_pcap)
+                {
+                    sys_info.sib_pcap_sent[i] = true;
+                }
+            }
             memcpy(&pdcch.alloc[pdcch.N_alloc], &sys_info.sib_alloc[i], sizeof(LIBLTE_PHY_ALLOCATION_STRUCT));
             liblte_phy_get_tbs_mcs_and_n_prb_for_dl(pdcch.alloc[pdcch.N_alloc].msg.N_bits,
                                                     dl_subframe.num,

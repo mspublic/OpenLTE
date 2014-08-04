@@ -27,6 +27,7 @@
     ----------    -------------    --------------------------------------------
     05/04/2014    Ben Wojtowicz    Created file
     06/15/2014    Ben Wojtowicz    Added millisecond resolution.
+    08/03/2014    Ben Wojtowicz    Added an invalid timer id.
 
 *******************************************************************************/
 
@@ -106,7 +107,8 @@ LTE_FDD_ENB_ERROR_ENUM LTE_fdd_enb_timer_mgr::start_timer(uint32                
     LTE_fdd_enb_timer                               *new_timer = NULL;
     LTE_FDD_ENB_ERROR_ENUM                           err       = LTE_FDD_ENB_ERROR_BAD_ALLOC;
 
-    while(timer_map.end() != iter)
+    while(timer_map.end()              != iter &&
+          LTE_FDD_ENB_INVALID_TIMER_ID != next_timer_id)
     {
         next_timer_id++;
         iter = timer_map.find(next_timer_id);

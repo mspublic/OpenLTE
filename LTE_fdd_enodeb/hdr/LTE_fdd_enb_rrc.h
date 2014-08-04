@@ -29,6 +29,8 @@
                                    machine.
     06/15/2014    Ben Wojtowicz    Added UL DCCH message handling and MME NAS
                                    message handling.
+    08/03/2014    Ben Wojtowicz    Added downlink NAS message handling and
+                                   connection release.
 
 *******************************************************************************/
 
@@ -101,6 +103,7 @@ private:
 
     // MME Message Handlers
     void handle_nas_msg(LTE_FDD_ENB_RRC_NAS_MSG_READY_MSG_STRUCT *nas_msg);
+    void handle_cmd(LTE_FDD_ENB_RRC_CMD_READY_MSG_STRUCT *cmd);
 
     // State Machines
     void ccch_sm(LIBLTE_BIT_MSG_STRUCT *msg, LTE_fdd_enb_user *user, LTE_fdd_enb_rb *rb);
@@ -111,6 +114,8 @@ private:
     void parse_ul_dcch_message(LIBLTE_BIT_MSG_STRUCT *msg, LTE_fdd_enb_user *user, LTE_fdd_enb_rb *rb);
 
     // Message Senders
+    void send_dl_info_transfer(LTE_fdd_enb_user *user, LTE_fdd_enb_rb *rb, LIBLTE_BYTE_MSG_STRUCT *msg);
+    void send_rrc_con_release(LTE_fdd_enb_user *user, LTE_fdd_enb_rb *rb);
     void send_rrc_con_setup(LTE_fdd_enb_user *user, LTE_fdd_enb_rb *rb);
 
     // Parameters

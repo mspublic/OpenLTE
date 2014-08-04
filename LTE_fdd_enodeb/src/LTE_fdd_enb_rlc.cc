@@ -29,6 +29,7 @@
     01/18/2014    Ben Wojtowicz    Added level to debug prints.
     05/04/2014    Ben Wojtowicz    Added communication to MAC and PDCP.
     06/15/2014    Ben Wojtowicz    Added basic AM receive functionality.
+    08/03/2014    Ben Wojtowicz    Added transmit functionality.
 
 *******************************************************************************/
 
@@ -203,6 +204,48 @@ void LTE_fdd_enb_rlc::update_sys_info(void)
     cnfg_db->get_sys_info(sys_info);
     sys_info_mutex.unlock();
 }
+void LTE_fdd_enb_rlc::handle_retransmit(LIBLTE_RLC_AMD_PDU_STRUCT *amd,
+                                        LTE_fdd_enb_user          *user,
+                                        LTE_fdd_enb_rb            *rb)
+{
+    LTE_fdd_enb_interface                *interface = LTE_fdd_enb_interface::get_instance();
+    LTE_FDD_ENB_MAC_SDU_READY_MSG_STRUCT  mac_sdu_ready;
+    LIBLTE_BIT_MSG_STRUCT                 pdu;
+
+    // Pack the PDU
+    amd->hdr.p = LIBLTE_RLC_P_FIELD_STATUS_REPORT_REQUESTED;
+    liblte_rlc_pack_amd_pdu(amd, &pdu);
+
+    // Start t-pollretransmit
+    rb->rlc_start_t_poll_retransmit();
+
+    interface->send_debug_msg(LTE_FDD_ENB_DEBUG_TYPE_INFO,
+                              LTE_FDD_ENB_DEBUG_LEVEL_RLC,
+                              __FILE__,
+                              __LINE__,
+                              &pdu,
+                              "Re-sending AMD PDU for RNTI=%u, RB=%s, VT(A)=%u, SN=%u, VT(MS)=%u, RF=%s, P=%s, FI=%s",
+                              user->get_c_rnti(),
+                              LTE_fdd_enb_rb_text[rb->get_rb_id()],
+                              rb->get_rlc_vta(),
+                              amd->hdr.sn,
+                              rb->get_rlc_vtms(),
+                              liblte_rlc_rf_field_text[amd->hdr.rf],
+                              liblte_rlc_p_field_text[amd->hdr.p],
+                              liblte_rlc_fi_field_text[amd->hdr.fi]);
+
+    // Queue the SDU for MAC
+    rb->queue_mac_sdu(&pdu);
+
+    // Signal MAC
+    mac_sdu_ready.user = user;
+    mac_sdu_ready.rb   = rb;
+    LTE_fdd_enb_msgq::send(rlc_mac_mq,
+                           LTE_FDD_ENB_MESSAGE_TYPE_MAC_SDU_READY,
+                           LTE_FDD_ENB_DEST_LAYER_MAC,
+                           (LTE_FDD_ENB_MESSAGE_UNION *)&mac_sdu_ready,
+                           sizeof(LTE_FDD_ENB_MAC_SDU_READY_MSG_STRUCT));
+}
 
 /******************************/
 /*    MAC Message Handlers    */
@@ -293,9 +336,7 @@ void LTE_fdd_enb_rlc::handle_am_pdu(LIBLTE_BIT_MSG_STRUCT *pdu,
 {
     LTE_fdd_enb_interface                 *interface = LTE_fdd_enb_interface::get_instance();
     LTE_FDD_ENB_PDCP_PDU_READY_MSG_STRUCT  pdcp_pdu_ready;
-    LTE_FDD_ENB_MAC_SDU_READY_MSG_STRUCT   mac_sdu_ready;
     LIBLTE_BIT_MSG_STRUCT                  pdcp_pdu;
-    LIBLTE_BIT_MSG_STRUCT                  mac_sdu;
     LIBLTE_RLC_AMD_PDU_STRUCT              amd;
     LIBLTE_RLC_STATUS_PDU_STRUCT           status;
     uint16                                 vrr  = rb->get_rlc_vrr();
@@ -304,87 +345,111 @@ void LTE_fdd_enb_rlc::handle_am_pdu(LIBLTE_BIT_MSG_STRUCT *pdu,
 
     liblte_rlc_unpack_amd_pdu(pdu, &amd);
 
-    if(vrr        <= amd.hdr.sn &&
-       amd.hdr.sn <  vrmr)
+    if(LIBLTE_RLC_DC_FIELD_CONTROL_PDU == amd.hdr.dc)
     {
-        interface->send_debug_msg(LTE_FDD_ENB_DEBUG_TYPE_INFO,
-                                  LTE_FDD_ENB_DEBUG_LEVEL_RLC,
-                                  __FILE__,
-                                  __LINE__,
-                                  &amd.data,
-                                  "Received AMD PDU for RNTI=%u, RB=%s, VR(R)=%u, SN=%u, VR(MR)=%u, VR(H)=%u, RF=%s, P=%s, FI=%s",
-                                  user->get_c_rnti(),
-                                  LTE_fdd_enb_rb_text[rb->get_rb_id()],
-                                  vrr,
-                                  amd.hdr.sn,
-                                  vrmr,
-                                  vrh,
-                                  liblte_rlc_rf_field_text[amd.hdr.rf],
-                                  liblte_rlc_p_field_text[amd.hdr.p],
-                                  liblte_rlc_fi_field_text[amd.hdr.fi]);
-
-        // Place RLC data PDU in reception buffer
-        rb->rlc_add_to_reception_buffer(&amd);
-
-        // Update VR(H)
-        if(amd.hdr.sn >= vrh)
+        handle_status_pdu(pdu, user, rb);
+    }else{
+        if(vrr        <= amd.hdr.sn &&
+           amd.hdr.sn <  vrmr)
         {
-            rb->set_rlc_vrh(amd.hdr.sn + 1);
-        }
+            interface->send_debug_msg(LTE_FDD_ENB_DEBUG_TYPE_INFO,
+                                      LTE_FDD_ENB_DEBUG_LEVEL_RLC,
+                                      __FILE__,
+                                      __LINE__,
+                                      &amd.data,
+                                      "Received AMD PDU for RNTI=%u, RB=%s, VR(R)=%u, SN=%u, VR(MR)=%u, VR(H)=%u, RF=%s, P=%s, FI=%s",
+                                      user->get_c_rnti(),
+                                      LTE_fdd_enb_rb_text[rb->get_rb_id()],
+                                      vrr,
+                                      amd.hdr.sn,
+                                      vrmr,
+                                      vrh,
+                                      liblte_rlc_rf_field_text[amd.hdr.rf],
+                                      liblte_rlc_p_field_text[amd.hdr.p],
+                                      liblte_rlc_fi_field_text[amd.hdr.fi]);
 
-        // Update VR(MS)
-        // FIXME
+            // Place RLC data PDU in reception buffer
+            rb->rlc_add_to_reception_buffer(&amd);
 
-        // Update VR(R)/VR(MR) and reassemble
-        if(amd.hdr.sn == vrr)
-        {
-            // FIXME: Handle AMD PDU Segments
-            rb->set_rlc_vrr(amd.hdr.sn + 1);
-
-            if(LTE_FDD_ENB_ERROR_NONE == rb->rlc_reassemble(&pdcp_pdu))
+            // Update VR(H)
+            if(amd.hdr.sn >= vrh)
             {
-                // Queue the SDU for PDCP
-                rb->queue_pdcp_pdu(&pdcp_pdu);
+                rb->set_rlc_vrh(amd.hdr.sn + 1);
+            }
 
-                // Signal PDCP
-                pdcp_pdu_ready.user = user;
-                pdcp_pdu_ready.rb   = rb;
-                LTE_fdd_enb_msgq::send(rlc_pdcp_mq,
-                                       LTE_FDD_ENB_MESSAGE_TYPE_PDCP_PDU_READY,
-                                       LTE_FDD_ENB_DEST_LAYER_PDCP,
-                                       (LTE_FDD_ENB_MESSAGE_UNION *)&pdcp_pdu_ready,
-                                       sizeof(LTE_FDD_ENB_PDCP_PDU_READY_MSG_STRUCT));
+            // Update VR(MS)
+            // FIXME
+
+            // Update VR(R)/VR(MR) and reassemble
+            if(amd.hdr.sn == vrr)
+            {
+                // FIXME: Handle AMD PDU Segments
+                rb->set_rlc_vrr(amd.hdr.sn + 1);
+
+                if(LTE_FDD_ENB_ERROR_NONE == rb->rlc_reassemble(&pdcp_pdu))
+                {
+                    // Queue the SDU for PDCP
+                    rb->queue_pdcp_pdu(&pdcp_pdu);
+
+                    // Signal PDCP
+                    pdcp_pdu_ready.user = user;
+                    pdcp_pdu_ready.rb   = rb;
+                    LTE_fdd_enb_msgq::send(rlc_pdcp_mq,
+                                           LTE_FDD_ENB_MESSAGE_TYPE_PDCP_PDU_READY,
+                                           LTE_FDD_ENB_DEST_LAYER_PDCP,
+                                           (LTE_FDD_ENB_MESSAGE_UNION *)&pdcp_pdu_ready,
+                                           sizeof(LTE_FDD_ENB_PDCP_PDU_READY_MSG_STRUCT));
+                }
+            }
+
+            if(amd.hdr.p)
+            {
+                // Send a STATUS PDU to ACK/NACK SNs
+                rb->rlc_get_reception_buffer_status(&status);
+                send_status_pdu(&status, user, rb);
+            }
+        }else{
+            interface->send_debug_msg(LTE_FDD_ENB_DEBUG_TYPE_INFO,
+                                      LTE_FDD_ENB_DEBUG_LEVEL_RLC,
+                                      __FILE__,
+                                      __LINE__,
+                                      &amd.data,
+                                      "Received AMD PDU for RNTI=%u, RB=%s, that is outside of the receiving window (%u <= %u < %u), P=%s",
+                                      user->get_c_rnti(),
+                                      LTE_fdd_enb_rb_text[rb->get_rb_id()],
+                                      vrr,
+                                      amd.hdr.sn,
+                                      vrmr,
+                                      liblte_rlc_p_field_text[amd.hdr.p]);
+
+            if(amd.hdr.p)
+            {
+                // Send a STATUS PDU to ACK/NACK SNs
+                rb->rlc_get_reception_buffer_status(&status);
+                send_status_pdu(&status, user, rb);
             }
         }
-
-        // Send a STATUS PDU to acknowledge the PDU
-        status.ack_sn = amd.hdr.sn + 1;
-        liblte_rlc_pack_status_pdu(&status, &mac_sdu);
-
-        // Queue the PDU for MAC
-        rb->queue_mac_sdu(&mac_sdu);
-
-        // Signal MAC
-        mac_sdu_ready.user = user;
-        mac_sdu_ready.rb   = rb;
-        LTE_fdd_enb_msgq::send(rlc_mac_mq,
-                               LTE_FDD_ENB_MESSAGE_TYPE_MAC_SDU_READY,
-                               LTE_FDD_ENB_DEST_LAYER_MAC,
-                               (LTE_FDD_ENB_MESSAGE_UNION *)&mac_sdu_ready,
-                               sizeof(LTE_FDD_ENB_MAC_SDU_READY_MSG_STRUCT));
-    }else{
-        interface->send_debug_msg(LTE_FDD_ENB_DEBUG_TYPE_INFO,
-                                  LTE_FDD_ENB_DEBUG_LEVEL_RLC,
-                                  __FILE__,
-                                  __LINE__,
-                                  &amd.data,
-                                  "Received AMD PDU for RNTI=%u, RB=%s, that is outside of the receiving window (%u <= %u < %u)",
-                                  user->get_c_rnti(),
-                                  LTE_fdd_enb_rb_text[rb->get_rb_id()],
-                                  vrr,
-                                  amd.hdr.sn,
-                                  vrmr);
     }
+}
+void LTE_fdd_enb_rlc::handle_status_pdu(LIBLTE_BIT_MSG_STRUCT *pdu,
+                                        LTE_fdd_enb_user      *user,
+                                        LTE_fdd_enb_rb        *rb)
+{
+    LTE_fdd_enb_interface        *interface = LTE_fdd_enb_interface::get_instance();
+    LIBLTE_RLC_STATUS_PDU_STRUCT  status;
+
+    liblte_rlc_unpack_status_pdu(pdu, &status);
+
+    rb->rlc_update_transmission_buffer(status.ack_sn);
+
+    // FIXME: Handle NACK_SNs
+
+    interface->send_debug_msg(LTE_FDD_ENB_DEBUG_TYPE_INFO,
+                              LTE_FDD_ENB_DEBUG_LEVEL_RLC,
+                              __FILE__,
+                              __LINE__,
+                              pdu,
+                              "Received STATUS PDU");
 }
 
 /*******************************/
@@ -473,11 +538,141 @@ void LTE_fdd_enb_rlc::handle_am_sdu(LIBLTE_BIT_MSG_STRUCT *sdu,
                                     LTE_fdd_enb_user      *user,
                                     LTE_fdd_enb_rb        *rb)
 {
-    LTE_fdd_enb_interface *interface = LTE_fdd_enb_interface::get_instance();
+    LIBLTE_RLC_AMD_PDU_STRUCT amd;
+    uint32                    bit_idx        = 0;
+    uint32                    bits_per_subfn = rb->get_qos_bits_per_subfn();
+    uint16                    vts            = rb->get_rlc_vts();
 
-    interface->send_debug_msg(LTE_FDD_ENB_DEBUG_TYPE_ERROR,
-                              LTE_FDD_ENB_DEBUG_LEVEL_RLC,
-                              __FILE__,
-                              __LINE__,
-                              "Not handling SDUs for RLC AM config");
+    if(sdu->N_bits <= bits_per_subfn)
+    {
+        amd.hdr.dc = LIBLTE_RLC_DC_FIELD_DATA_PDU;
+        amd.hdr.rf = LIBLTE_RLC_RF_FIELD_AMD_PDU;
+        amd.hdr.sn = vts;
+        amd.hdr.p  = LIBLTE_RLC_P_FIELD_STATUS_REPORT_REQUESTED;
+        amd.hdr.fi = LIBLTE_RLC_FI_FIELD_FULL_SDU;
+        memcpy(&amd.data, sdu, sizeof(LIBLTE_BIT_MSG_STRUCT));
+        rb->set_rlc_vts(vts+1);
+
+        send_amd_pdu(&amd, user, rb);
+    }else{
+        // Segment the message
+        while(bit_idx < sdu->N_bits)
+        {
+            amd.hdr.dc = LIBLTE_RLC_DC_FIELD_DATA_PDU;
+            amd.hdr.rf = LIBLTE_RLC_RF_FIELD_AMD_PDU;
+            amd.hdr.sn = vts;
+            amd.hdr.p  = LIBLTE_RLC_P_FIELD_STATUS_REPORT_NOT_REQUESTED;
+            amd.hdr.fi = LIBLTE_RLC_FI_FIELD_MIDDLE_SDU_SEGMENT;
+            if(bit_idx == 0)
+            {
+                amd.hdr.fi = LIBLTE_RLC_FI_FIELD_FIRST_SDU_SEGMENT;
+            }
+            if((sdu->N_bits - bit_idx) >= bits_per_subfn)
+            {
+                memcpy(&amd.data.msg[0], &sdu->msg[bit_idx], bits_per_subfn);
+                amd.data.N_bits  = bits_per_subfn;
+                bit_idx         += bits_per_subfn;
+            }else{
+                memcpy(&amd.data.msg[0], &sdu->msg[bit_idx], sdu->N_bits - bit_idx);
+                amd.data.N_bits = sdu->N_bits - bit_idx;
+                bit_idx         = sdu->N_bits;
+            }
+            if(bit_idx == sdu->N_bits)
+            {
+                amd.hdr.fi = LIBLTE_RLC_FI_FIELD_LAST_SDU_SEGMENT;
+            }
+            rb->set_rlc_vts(vts+1);
+            vts = rb->get_rlc_vts();
+
+            send_amd_pdu(&amd, user, rb);
+        }
+    }
+}
+
+/******************************/
+/*    Message Constructors    */
+/******************************/
+void LTE_fdd_enb_rlc::send_status_pdu(LIBLTE_RLC_STATUS_PDU_STRUCT *status_pdu,
+                                      LTE_fdd_enb_user             *user,
+                                      LTE_fdd_enb_rb               *rb)
+{
+    LIBLTE_BIT_MSG_STRUCT                mac_sdu;
+    LTE_FDD_ENB_MAC_SDU_READY_MSG_STRUCT mac_sdu_ready;
+
+    // Pack the PDU
+    liblte_rlc_pack_status_pdu(status_pdu, &mac_sdu);
+
+    // Queue the PDU for MAC
+    rb->queue_mac_sdu(&mac_sdu);
+
+    // Signal MAC
+    mac_sdu_ready.user = user;
+    mac_sdu_ready.rb   = rb;
+    LTE_fdd_enb_msgq::send(rlc_mac_mq,
+                           LTE_FDD_ENB_MESSAGE_TYPE_MAC_SDU_READY,
+                           LTE_FDD_ENB_DEST_LAYER_MAC,
+                           (LTE_FDD_ENB_MESSAGE_UNION *)&mac_sdu_ready,
+                           sizeof(LTE_FDD_ENB_MAC_SDU_READY_MSG_STRUCT));
+}
+void LTE_fdd_enb_rlc::send_amd_pdu(LIBLTE_RLC_AMD_PDU_STRUCT *amd,
+                                   LTE_fdd_enb_user          *user,
+                                   LTE_fdd_enb_rb            *rb)
+{
+    LTE_fdd_enb_interface                *interface = LTE_fdd_enb_interface::get_instance();
+    LTE_FDD_ENB_MAC_SDU_READY_MSG_STRUCT  mac_sdu_ready;
+    LIBLTE_BIT_MSG_STRUCT                 pdu;
+    uint16                                vta  = rb->get_rlc_vta();
+    uint16                                vtms = rb->get_rlc_vtms();
+
+    // Pack the PDU
+    liblte_rlc_pack_amd_pdu(amd, &pdu);
+
+    // Store
+    rb->rlc_add_to_transmission_buffer(amd);
+
+    // Start t-pollretransmit
+    rb->rlc_start_t_poll_retransmit();
+
+    if(vta         <= amd->hdr.sn &&
+       amd->hdr.sn <  vtms)
+    {
+        interface->send_debug_msg(LTE_FDD_ENB_DEBUG_TYPE_INFO,
+                                  LTE_FDD_ENB_DEBUG_LEVEL_RLC,
+                                  __FILE__,
+                                  __LINE__,
+                                  &pdu,
+                                  "Sending AMD PDU for RNTI=%u, RB=%s, VT(A)=%u, SN=%u, VT(MS)=%u, RF=%s, P=%s, FI=%s",
+                                  user->get_c_rnti(),
+                                  LTE_fdd_enb_rb_text[rb->get_rb_id()],
+                                  vta,
+                                  amd->hdr.sn,
+                                  vtms,
+                                  liblte_rlc_rf_field_text[amd->hdr.rf],
+                                  liblte_rlc_p_field_text[amd->hdr.p],
+                                  liblte_rlc_fi_field_text[amd->hdr.fi]);
+
+        // Queue the SDU for MAC
+        rb->queue_mac_sdu(&pdu);
+
+        // Signal MAC
+        mac_sdu_ready.user = user;
+        mac_sdu_ready.rb   = rb;
+        LTE_fdd_enb_msgq::send(rlc_mac_mq,
+                               LTE_FDD_ENB_MESSAGE_TYPE_MAC_SDU_READY,
+                               LTE_FDD_ENB_DEST_LAYER_MAC,
+                               (LTE_FDD_ENB_MESSAGE_UNION *)&mac_sdu_ready,
+                               sizeof(LTE_FDD_ENB_MAC_SDU_READY_MSG_STRUCT));
+    }else{
+        interface->send_debug_msg(LTE_FDD_ENB_DEBUG_TYPE_INFO,
+                                  LTE_FDD_ENB_DEBUG_LEVEL_RLC,
+                                  __FILE__,
+                                  __LINE__,
+                                  &pdu,
+                                  "Can't send AMD PDU for RNTI=%u, RB=%s, outside of transmit window (%u <= %u < %u)",
+                                  user->get_c_rnti(),
+                                  LTE_fdd_enb_rb_text[rb->get_rb_id()],
+                                  vta,
+                                  amd->hdr.sn,
+                                  vtms);
+    }
 }

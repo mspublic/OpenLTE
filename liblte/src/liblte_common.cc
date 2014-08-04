@@ -1,6 +1,6 @@
 /*******************************************************************************
 
-    Copyright 2012-2014 Ben Wojtowicz
+    Copyright 2014 Ben Wojtowicz
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -17,60 +17,39 @@
 
 *******************************************************************************
 
-    File: liblte_common.h
+    File: liblte_common.cc
 
-    Description: Contains all the common definitions for the LTE library.
+    Description: Contains all the implementations for the LTE common library.
 
     Revision History
     ----------    -------------    --------------------------------------------
-    02/26/2012    Ben Wojtowicz    Created file.
-    07/21/2013    Ben Wojtowicz    Added a common message structure.
-    06/15/2014    Ben Wojtowicz    Split LIBLTE_MSG_STRUCT into bit and byte
-                                   aligned messages.
-    08/03/2014    Ben Wojtowicz    Commonized value_2_bits and bits_2_value.
+    08/03/2014    Ben Wojtowicz    Created file.
 
 *******************************************************************************/
-
-#ifndef __LIBLTE_COMMON_H__
-#define __LIBLTE_COMMON_H__
 
 /*******************************************************************************
                               INCLUDES
 *******************************************************************************/
 
-#include "typedefs.h"
-#include <string.h>
+#include "liblte_common.h"
 
 /*******************************************************************************
                               DEFINES
 *******************************************************************************/
 
-// FIXME: This was chosen arbitrarily
-#define LIBLTE_MAX_MSG_SIZE 4096
 
 /*******************************************************************************
                               TYPEDEFS
 *******************************************************************************/
 
-typedef enum{
-    LIBLTE_SUCCESS = 0,
-    LIBLTE_ERROR_INVALID_INPUTS,
-    LIBLTE_ERROR_DECODE_FAIL,
-    LIBLTE_ERROR_INVALID_CRC,
-}LIBLTE_ERROR_ENUM;
-
-typedef struct{
-    uint32 N_bits;
-    uint8  msg[LIBLTE_MAX_MSG_SIZE];
-}LIBLTE_BIT_MSG_STRUCT;
-
-typedef struct{
-    uint32 N_bytes;
-    uint8  msg[LIBLTE_MAX_MSG_SIZE];
-}LIBLTE_BYTE_MSG_STRUCT;
 
 /*******************************************************************************
-                              DECLARATIONS
+                              GLOBAL VARIABLES
+*******************************************************************************/
+
+
+/*******************************************************************************
+                              FUNCTIONS
 *******************************************************************************/
 
 /*********************************************************************
@@ -80,7 +59,16 @@ typedef struct{
 *********************************************************************/
 void value_2_bits(uint32   value,
                   uint8  **bits,
-                  uint32   N_bits);
+                  uint32   N_bits)
+{
+    uint32 i;
+
+    for(i=0; i<N_bits; i++)
+    {
+        (*bits)[i] = (value >> (N_bits-i-1)) & 0x1;
+    }
+    *bits += N_bits;
+}
 
 /*********************************************************************
     Name: bits_2_value
@@ -88,6 +76,16 @@ void value_2_bits(uint32   value,
     Description: Converts a bit string to a value
 *********************************************************************/
 uint32 bits_2_value(uint8  **bits,
-                    uint32   N_bits);
+                    uint32   N_bits)
+{
+    uint32 value = 0;
+    uint32 i;
 
-#endif /* __LIBLTE_COMMON_H__ */
+    for(i=0; i<N_bits; i++)
+    {
+        value |= (*bits)[i] << (N_bits-i-1);
+    }
+    *bits += N_bits;
+
+    return(value);
+}

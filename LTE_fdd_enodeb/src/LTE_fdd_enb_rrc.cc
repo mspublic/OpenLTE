@@ -31,6 +31,8 @@
                                    machine.
     06/15/2014    Ben Wojtowicz    Added UL DCCH message handling and MME NAS
                                    message handling.
+    08/03/2014    Ben Wojtowicz    Added downlink NAS message handling and
+                                   connection release.
 
 *******************************************************************************/
 
@@ -178,6 +180,10 @@ void LTE_fdd_enb_rrc::handle_mme_msg(LTE_FDD_ENB_MESSAGE_STRUCT *msg)
             handle_nas_msg(&msg->msg.rrc_nas_msg_ready);
             delete msg;
             break;
+        case LTE_FDD_ENB_MESSAGE_TYPE_RRC_CMD_READY:
+            handle_cmd(&msg->msg.rrc_cmd_ready);
+            delete msg;
+            break;
         default:
             interface->send_debug_msg(LTE_FDD_ENB_DEBUG_TYPE_ERROR,
                                       LTE_FDD_ENB_DEBUG_LEVEL_RRC,
@@ -263,7 +269,51 @@ void LTE_fdd_enb_rrc::handle_pdu_ready(LTE_FDD_ENB_RRC_PDU_READY_MSG_STRUCT *pdu
 /******************************/
 void LTE_fdd_enb_rrc::handle_nas_msg(LTE_FDD_ENB_RRC_NAS_MSG_READY_MSG_STRUCT *nas_msg)
 {
-    // FIXME
+    LTE_fdd_enb_interface  *interface = LTE_fdd_enb_interface::get_instance();
+    LIBLTE_BYTE_MSG_STRUCT *msg;
+
+    if(LTE_FDD_ENB_ERROR_NONE == nas_msg->rb->get_next_rrc_nas_msg(&msg))
+    {
+        interface->send_debug_msg(LTE_FDD_ENB_DEBUG_TYPE_INFO,
+                                  LTE_FDD_ENB_DEBUG_LEVEL_RRC,
+                                  __FILE__,
+                                  __LINE__,
+                                  msg,
+                                  "Received NAS message for RNTI=%u and RB=%s",
+                                  nas_msg->user->get_c_rnti(),
+                                  LTE_fdd_enb_rb_text[nas_msg->rb->get_rb_id()]);
+
+        // Send the NAS message
+        send_dl_info_transfer(nas_msg->user, nas_msg->rb, msg);
+
+        // Delete the NAS message
+        nas_msg->rb->delete_next_rrc_nas_msg();
+    }else{
+        interface->send_debug_msg(LTE_FDD_ENB_DEBUG_TYPE_ERROR,
+                                  LTE_FDD_ENB_DEBUG_LEVEL_RRC,
+                                  __FILE__,
+                                  __LINE__,
+                                  "Received NAS message with no message queued");
+    }
+}
+void LTE_fdd_enb_rrc::handle_cmd(LTE_FDD_ENB_RRC_CMD_READY_MSG_STRUCT *cmd)
+{
+    LTE_fdd_enb_interface *interface = LTE_fdd_enb_interface::get_instance();
+
+    interface->send_debug_msg(LTE_FDD_ENB_DEBUG_TYPE_INFO,
+                              LTE_FDD_ENB_DEBUG_LEVEL_RRC,
+                              __FILE__,
+                              __LINE__,
+                              "Received MME command %s for RNTI=%u and RB=%s",
+                              LTE_fdd_enb_rrc_cmd_text[cmd->cmd],
+                              cmd->user->get_c_rnti(),
+                              LTE_fdd_enb_rb_text[cmd->rb->get_rb_id()]);
+
+    if(LTE_FDD_ENB_RRC_CMD_RELEASE == cmd->cmd)
+    {
+        // Send RRC Connection Release
+        send_rrc_con_release(cmd->user, cmd->rb);
+    }
 }
 
 /************************/
@@ -336,6 +386,10 @@ void LTE_fdd_enb_rrc::dcch_sm(LIBLTE_BIT_MSG_STRUCT *msg,
         switch(rb->get_rrc_state())
         {
         case LTE_FDD_ENB_RRC_STATE_WAIT_FOR_CON_SETUP_COMPLETE:
+            // Parse the message
+            parse_ul_dcch_message(msg, user, rb);
+            break;
+        case LTE_FDD_ENB_RRC_STATE_RRC_CONNECTED:
             // Parse the message
             parse_ul_dcch_message(msg, user, rb);
             break;
@@ -443,6 +497,30 @@ void LTE_fdd_enb_rrc::parse_ul_dcch_message(LIBLTE_BIT_MSG_STRUCT *msg,
                                (LTE_FDD_ENB_MESSAGE_UNION *)&nas_msg_ready,
                                sizeof(LTE_FDD_ENB_MME_NAS_MSG_READY_MSG_STRUCT));
         break;
+    case LIBLTE_RRC_UL_DCCH_MSG_TYPE_UL_INFO_TRANSFER:
+        if(LIBLTE_RRC_UL_INFORMATION_TRANSFER_TYPE_NAS == rb->ul_dcch_msg.msg.ul_info_transfer.dedicated_info_type)
+        {
+            // Queue the NAS message for MME
+            rb->queue_mme_nas_msg(&rb->ul_dcch_msg.msg.ul_info_transfer.dedicated_info);
+
+            // Signal MME
+            nas_msg_ready.user = user;
+            nas_msg_ready.rb   = rb;
+            LTE_fdd_enb_msgq::send(rrc_mme_mq,
+                                   LTE_FDD_ENB_MESSAGE_TYPE_MME_NAS_MSG_READY,
+                                   LTE_FDD_ENB_DEST_LAYER_MME,
+                                   (LTE_FDD_ENB_MESSAGE_UNION *)&nas_msg_ready,
+                                   sizeof(LTE_FDD_ENB_MME_NAS_MSG_READY_MSG_STRUCT));
+        }else{
+            interface->send_debug_msg(LTE_FDD_ENB_DEBUG_TYPE_ERROR,
+                                      LTE_FDD_ENB_DEBUG_LEVEL_RRC,
+                                      __FILE__,
+                                      __LINE__,
+                                      msg,
+                                      "UL-DCCH-Message UL Information Transfer received with invalid dedicated info %s",
+                                      liblte_rrc_ul_information_transfer_type_text[rb->ul_dcch_msg.msg.ul_info_transfer.dedicated_info_type]);
+        }
+        break;
     default:
         interface->send_debug_msg(LTE_FDD_ENB_DEBUG_TYPE_ERROR,
                                   LTE_FDD_ENB_DEBUG_LEVEL_RRC,
@@ -458,6 +536,72 @@ void LTE_fdd_enb_rrc::parse_ul_dcch_message(LIBLTE_BIT_MSG_STRUCT *msg,
 /*************************/
 /*    Message Senders    */
 /*************************/
+void LTE_fdd_enb_rrc::send_dl_info_transfer(LTE_fdd_enb_user       *user,
+                                            LTE_fdd_enb_rb         *rb,
+                                            LIBLTE_BYTE_MSG_STRUCT *msg)
+{
+    LTE_fdd_enb_interface                 *interface = LTE_fdd_enb_interface::get_instance();
+    LTE_FDD_ENB_PDCP_SDU_READY_MSG_STRUCT  pdcp_sdu_ready;
+    LIBLTE_BIT_MSG_STRUCT                  pdcp_sdu;
+
+    rb->dl_dcch_msg.msg_type                                 = LIBLTE_RRC_DL_DCCH_MSG_TYPE_DL_INFO_TRANSFER;
+    rb->dl_dcch_msg.msg.dl_info_transfer.rrc_transaction_id  = rb->get_rrc_transaction_id();
+    rb->dl_dcch_msg.msg.dl_info_transfer.dedicated_info_type = LIBLTE_RRC_DL_INFORMATION_TRANSFER_TYPE_NAS;
+    memcpy(&rb->dl_dcch_msg.msg.dl_info_transfer.dedicated_info, msg, sizeof(LIBLTE_BYTE_MSG_STRUCT));
+    liblte_rrc_pack_dl_dcch_msg(&rb->dl_dcch_msg, &pdcp_sdu);
+    interface->send_debug_msg(LTE_FDD_ENB_DEBUG_TYPE_INFO,
+                              LTE_FDD_ENB_DEBUG_LEVEL_RRC,
+                              __FILE__,
+                              __LINE__,
+                              &pdcp_sdu,
+                              "Sending DL Info Transfer for RNTI=%u, RB=%s",
+                              user->get_c_rnti(),
+                              LTE_fdd_enb_rb_text[rb->get_rb_id()]);
+
+    // Queue the PDU for PDCP
+    rb->queue_pdcp_sdu(&pdcp_sdu);
+
+    // Signal PDCP
+    pdcp_sdu_ready.user = user;
+    pdcp_sdu_ready.rb   = rb;
+    LTE_fdd_enb_msgq::send(rrc_pdcp_mq,
+                           LTE_FDD_ENB_MESSAGE_TYPE_PDCP_SDU_READY,
+                           LTE_FDD_ENB_DEST_LAYER_PDCP,
+                           (LTE_FDD_ENB_MESSAGE_UNION *)&pdcp_sdu_ready,
+                           sizeof(LTE_FDD_ENB_PDCP_SDU_READY_MSG_STRUCT));
+}
+void LTE_fdd_enb_rrc::send_rrc_con_release(LTE_fdd_enb_user *user,
+                                           LTE_fdd_enb_rb   *rb)
+{
+    LTE_fdd_enb_interface                 *interface = LTE_fdd_enb_interface::get_instance();
+    LTE_FDD_ENB_PDCP_SDU_READY_MSG_STRUCT  pdcp_sdu_ready;
+    LIBLTE_BIT_MSG_STRUCT                  pdcp_sdu;
+
+    rb->dl_dcch_msg.msg_type                               = LIBLTE_RRC_DL_DCCH_MSG_TYPE_RRC_CON_RELEASE;
+    rb->dl_dcch_msg.msg.rrc_con_release.rrc_transaction_id = rb->get_rrc_transaction_id();
+    rb->dl_dcch_msg.msg.rrc_con_release.release_cause      = LIBLTE_RRC_RELEASE_CAUSE_OTHER;
+    liblte_rrc_pack_dl_dcch_msg(&rb->dl_dcch_msg, &pdcp_sdu);
+    interface->send_debug_msg(LTE_FDD_ENB_DEBUG_TYPE_INFO,
+                              LTE_FDD_ENB_DEBUG_LEVEL_RRC,
+                              __FILE__,
+                              __LINE__,
+                              &pdcp_sdu,
+                              "Sending RRC Connection Release for RNTI=%u, RB=%s",
+                              user->get_c_rnti(),
+                              LTE_fdd_enb_rb_text[rb->get_rb_id()]);
+
+    // Queue the PDU for PDCP
+    rb->queue_pdcp_sdu(&pdcp_sdu);
+
+    // Signal PDCP
+    pdcp_sdu_ready.user = user;
+    pdcp_sdu_ready.rb   = rb;
+    LTE_fdd_enb_msgq::send(rrc_pdcp_mq,
+                           LTE_FDD_ENB_MESSAGE_TYPE_PDCP_SDU_READY,
+                           LTE_FDD_ENB_DEST_LAYER_PDCP,
+                           (LTE_FDD_ENB_MESSAGE_UNION *)&pdcp_sdu_ready,
+                           sizeof(LTE_FDD_ENB_PDCP_SDU_READY_MSG_STRUCT));
+}
 void LTE_fdd_enb_rrc::send_rrc_con_setup(LTE_fdd_enb_user *user,
                                          LTE_fdd_enb_rb   *rb)
 {
@@ -469,7 +613,7 @@ void LTE_fdd_enb_rrc::send_rrc_con_setup(LTE_fdd_enb_user *user,
     // RRC Connection Setup
     rb->dl_ccch_msg.msg_type                                                                  = LIBLTE_RRC_DL_CCCH_MSG_TYPE_RRC_CON_SETUP;
     rrc_con_setup                                                                             = (LIBLTE_RRC_CONNECTION_SETUP_STRUCT *)&rb->dl_ccch_msg.msg.rrc_con_setup;
-    rrc_con_setup->transaction_id                                                             = 0;
+    rrc_con_setup->rrc_transaction_id                                                         = rb->get_rrc_transaction_id();
     rrc_con_setup->rr_cnfg.srb_to_add_mod_list_size                                           = 1;
     rrc_con_setup->rr_cnfg.srb_to_add_mod_list[0].srb_id                                      = 1;
     rrc_con_setup->rr_cnfg.srb_to_add_mod_list[0].rlc_cnfg_present                            = true;

@@ -26,6 +26,7 @@
     Revision History
     ----------    -------------    --------------------------------------------
     06/15/2014    Ben Wojtowicz    Created file
+    08/03/2014    Ben Wojtowicz    Added authentication vector support.
 
 *******************************************************************************/
 
@@ -34,6 +35,7 @@
 *******************************************************************************/
 
 #include "LTE_fdd_enb_hss.h"
+#include "liblte_security.h"
 #include <boost/lexical_cast.hpp>
 
 /*******************************************************************************
@@ -96,53 +98,116 @@ LTE_fdd_enb_hss::~LTE_fdd_enb_hss()
 /****************************/
 /*    External Interface    */
 /****************************/
-LTE_FDD_ENB_ERROR_ENUM LTE_fdd_enb_hss::add_user(std::string imsi)
+LTE_FDD_ENB_ERROR_ENUM LTE_fdd_enb_hss::add_user(std::string imsi,
+                                                 std::string imei,
+                                                 std::string k,
+                                                 std::string amf)
 {
-    LTE_fdd_enb_user       *new_user = NULL;
-    LTE_FDD_ENB_ERROR_ENUM  err      = LTE_FDD_ENB_ERROR_BAD_ALLOC;
+    std::list<LTE_FDD_ENB_HSS_USER_STRUCT *>::iterator  iter;
+    LTE_FDD_ENB_HSS_USER_STRUCT                        *new_user = new LTE_FDD_ENB_HSS_USER_STRUCT;
+    LTE_FDD_ENB_ERROR_ENUM                              err      = LTE_FDD_ENB_ERROR_BAD_ALLOC;
+    const char                                         *imsi_str = imsi.c_str();
+    const char                                         *imei_str = imei.c_str();
+    const char                                         *k_str    = k.c_str();
+    const char                                         *amf_str  = amf.c_str();
+    uint32                                              i;
 
-    new_user = new LTE_fdd_enb_user(imsi);
-
-    if(NULL != new_user)
+    if(NULL != new_user      &&
+       15   == imsi.length() &&
+       15   == imei.length() &&
+       32   == k.length())
     {
-        user_mutex.lock();
-        user_list.push_back(new_user);
-        user_mutex.unlock();
-
-        err = LTE_FDD_ENB_ERROR_NONE;
-    }
-
-    return(err);
-}
-LTE_FDD_ENB_ERROR_ENUM LTE_fdd_enb_hss::find_user(std::string        imsi,
-                                                  LTE_fdd_enb_user **user)
-{
-    boost::mutex::scoped_lock               lock(user_mutex);
-    std::list<LTE_fdd_enb_user *>::iterator iter;
-    LTE_FDD_ENB_ERROR_ENUM                  err = LTE_FDD_ENB_ERROR_USER_NOT_FOUND;
-
-    for(iter=user_list.begin(); iter!=user_list.end(); iter++)
-    {
-        if((*iter)->get_imsi() == imsi)
+        new_user->id.imsi = 0;
+        for(i=0; i<15; i++)
         {
-            *user = (*iter);
-            err   = LTE_FDD_ENB_ERROR_NONE;
-            break;
+            new_user->id.imsi *= 10;
+            new_user->id.imsi += imsi_str[i] - '0';
         }
+
+        new_user->id.imei = 0;
+        for(i=0; i<15; i++)
+        {
+            new_user->id.imei *= 10;
+            new_user->id.imei += imei_str[i] - '0';
+        }
+
+        for(i=0; i<16; i++)
+        {
+            if(k_str[i*2+0] >= '0' && k_str[i*2+0] <= '9')
+            {
+                new_user->stored_data.k[i] = (k_str[i*2+0] - '0') << 4;
+            }else if(k_str[i*2+0] >= 'A' && k_str[i*2+0] <= 'F'){
+                new_user->stored_data.k[i] = ((k_str[i*2+0] - 'A') + 0xA) << 4;
+            }else{
+                new_user->stored_data.k[i] = ((k_str[i*2+0] - 'a') + 0xA) << 4;
+            }
+
+            if(k_str[i*2+1] >= '0' && k_str[i*2+1] <= '9')
+            {
+                new_user->stored_data.k[i] |= k_str[i*2+1] - '0';
+            }else if(k_str[i*2+1] >= 'A' && k_str[i*2+1] <= 'F'){
+                new_user->stored_data.k[i] |= (k_str[i*2+1] - 'A') + 0xA;
+            }else{
+                new_user->stored_data.k[i] |= (k_str[i*2+1] - 'a') + 0xA;
+            }
+        }
+
+        for(i=0; i<2; i++)
+        {
+            if(amf_str[i*2+0] >= '0' && amf_str[i*2+0] <= '9')
+            {
+                new_user->stored_data.amf[i] = (amf_str[i*2+0] - '0') << 4;
+            }else if(amf_str[i*2+0] >= 'A' && amf_str[i*2+0] <= 'F'){
+                new_user->stored_data.amf[i] = ((amf_str[i*2+0] - 'A') + 0xA) << 4;
+            }else{
+                new_user->stored_data.amf[i] = ((amf_str[i*2+0] - 'a') + 0xA) << 4;
+            }
+
+            if(amf_str[i*2+1] >= '0' && amf_str[i*2+1] <= '9')
+            {
+                new_user->stored_data.amf[i] |= amf_str[i*2+1] - '0';
+            }else if(amf_str[i*2+1] >= 'A' && amf_str[i*2+1] <= 'F'){
+                new_user->stored_data.amf[i] |= (amf_str[i*2+1] - 'A') + 0xA;
+            }else{
+                new_user->stored_data.amf[i] |= (amf_str[i*2+1] - 'a') + 0xA;
+            }
+        }
+
+        new_user->generated_data.sqn_he = 0;
+        new_user->generated_data.seq_he = 0;
+        new_user->generated_data.ind_he = 0;
+
+        user_mutex.lock();
+        err = LTE_FDD_ENB_ERROR_NONE;
+        for(iter=user_list.begin(); iter!=user_list.end(); iter++)
+        {
+            if((*iter)->id.imsi == new_user->id.imsi ||
+               (*iter)->id.imei == new_user->id.imei)
+            {
+                err = LTE_FDD_ENB_ERROR_DUPLICATE_ENTRY;
+            }
+        }
+        if(LTE_FDD_ENB_ERROR_NONE == err)
+        {
+            user_list.push_back(new_user);
+        }else{
+            delete new_user;
+        }
+        user_mutex.unlock();
     }
 
     return(err);
 }
 LTE_FDD_ENB_ERROR_ENUM LTE_fdd_enb_hss::del_user(std::string imsi)
 {
-    boost::mutex::scoped_lock                lock(user_mutex);
-    std::list<LTE_fdd_enb_user *>::iterator  iter;
-    LTE_fdd_enb_user                        *user = NULL;
-    LTE_FDD_ENB_ERROR_ENUM                   err  = LTE_FDD_ENB_ERROR_USER_NOT_FOUND;
+    boost::mutex::scoped_lock                           lock(user_mutex);
+    std::list<LTE_FDD_ENB_HSS_USER_STRUCT *>::iterator  iter;
+    LTE_FDD_ENB_HSS_USER_STRUCT                        *user = NULL;
+    LTE_FDD_ENB_ERROR_ENUM                              err  = LTE_FDD_ENB_ERROR_USER_NOT_FOUND;
 
     for(iter=user_list.begin(); iter!=user_list.end(); iter++)
     {
-        if((*iter)->get_imsi() == imsi)
+        if(imsi == boost::lexical_cast<std::string>((*iter)->id.imsi))
         {
             user = (*iter);
             user_list.erase(iter);
@@ -156,16 +221,220 @@ LTE_FDD_ENB_ERROR_ENUM LTE_fdd_enb_hss::del_user(std::string imsi)
 }
 std::string LTE_fdd_enb_hss::print_all_users(void)
 {
-    boost::mutex::scoped_lock               lock(user_mutex);
-    std::list<LTE_fdd_enb_user *>::iterator iter;
-    std::string                             output;
+    boost::mutex::scoped_lock                          lock(user_mutex);
+    std::list<LTE_FDD_ENB_HSS_USER_STRUCT *>::iterator iter;
+    std::string                                        output;
+    uint32                                             i;
+    uint32                                             hex_val;
 
     output = boost::lexical_cast<std::string>(user_list.size());
     for(iter=user_list.begin(); iter!=user_list.end(); iter++)
     {
         output += "\n";
-        output += (*iter)->get_imsi();
+        output += "imsi=" + boost::lexical_cast<std::string>((*iter)->id.imsi);
+        output += " imei=" + boost::lexical_cast<std::string>((*iter)->id.imei);
+        output += " k=";
+        for(i=0; i<16; i++)
+        {
+            hex_val = ((*iter)->stored_data.k[i] >> 4) & 0xF;
+            if(hex_val < 0xA)
+            {
+                output += (char)(hex_val + '0');
+            }else{
+                output += (char)((hex_val-0xA) + 'A');
+            }
+            hex_val = (*iter)->stored_data.k[i] & 0xF;
+            if(hex_val < 0xA)
+            {
+                output += (char)(hex_val + '0');
+            }else{
+                output += (char)((hex_val-0xA) + 'A');
+            }
+        }
+        output += " amf=";
+        for(i=0; i<2; i++)
+        {
+            hex_val = ((*iter)->stored_data.amf[i] >> 4) & 0xF;
+            if(hex_val < 0xA)
+            {
+                output += (char)(hex_val + '0');
+            }else{
+                output += (char)((hex_val-0xA) + 'A');
+            }
+            hex_val = (*iter)->stored_data.amf[i] & 0xF;
+            if(hex_val < 0xA)
+            {
+                output += (char)(hex_val + '0');
+            }else{
+                output += (char)((hex_val-0xA) + 'A');
+            }
+        }
     }
 
     return(output);
+}
+bool LTE_fdd_enb_hss::is_imsi_allowed(uint64 imsi)
+{
+    boost::mutex::scoped_lock                          lock(user_mutex);
+    std::list<LTE_FDD_ENB_HSS_USER_STRUCT *>::iterator iter;
+    bool                                               ret = false;
+
+    for(iter=user_list.begin(); iter!=user_list.end(); iter++)
+    {
+        if(imsi == (*iter)->id.imsi)
+        {
+            ret = true;
+            break;
+        }
+    }
+
+    return(ret);
+}
+bool LTE_fdd_enb_hss::is_imei_allowed(uint64 imei)
+{
+    boost::mutex::scoped_lock                          lock(user_mutex);
+    std::list<LTE_FDD_ENB_HSS_USER_STRUCT *>::iterator iter;
+    bool                                               ret = false;
+
+    for(iter=user_list.begin(); iter!=user_list.end(); iter++)
+    {
+        if(imei == (*iter)->id.imei)
+        {
+            ret = true;
+            break;
+        }
+    }
+
+    return(ret);
+}
+LTE_FDD_ENB_USER_ID_STRUCT* LTE_fdd_enb_hss::get_user_id_from_imsi(uint64 imsi)
+{
+    boost::mutex::scoped_lock                           lock(user_mutex);
+    std::list<LTE_FDD_ENB_HSS_USER_STRUCT *>::iterator  iter;
+    LTE_FDD_ENB_USER_ID_STRUCT                         *id = NULL;
+
+    for(iter=user_list.begin(); iter!=user_list.end(); iter++)
+    {
+        if(imsi == (*iter)->id.imsi)
+        {
+            id = &(*iter)->id;
+        }
+    }
+
+    return(id);
+}
+LTE_FDD_ENB_USER_ID_STRUCT* LTE_fdd_enb_hss::get_user_id_from_imei(uint64 imei)
+{
+    boost::mutex::scoped_lock                           lock(user_mutex);
+    std::list<LTE_FDD_ENB_HSS_USER_STRUCT *>::iterator  iter;
+    LTE_FDD_ENB_USER_ID_STRUCT                         *id = NULL;
+
+    for(iter=user_list.begin(); iter!=user_list.end(); iter++)
+    {
+        if(imei == (*iter)->id.imei)
+        {
+            id = &(*iter)->id;
+        }
+    }
+
+    return(id);
+}
+void LTE_fdd_enb_hss::generate_security_data(LTE_FDD_ENB_USER_ID_STRUCT *id,
+                                             uint16                      mcc,
+                                             uint16                      mnc)
+{
+    boost::mutex::scoped_lock                          lock(user_mutex);
+    std::list<LTE_FDD_ENB_HSS_USER_STRUCT *>::iterator iter;
+    uint32                                             i;
+    uint32                                             rand_val;
+    uint8                                              sqn[6];
+
+    for(iter=user_list.begin(); iter!=user_list.end(); iter++)
+    {
+        if(id->imei == (*iter)->id.imei &&
+           id->imsi == (*iter)->id.imsi)
+        {
+            // Generate sqn
+            (*iter)->generated_data.seq_he = ((*iter)->generated_data.seq_he + 1) % LTE_FDD_ENB_SEQ_HE_MAX_VALUE;
+            (*iter)->generated_data.ind_he = ((*iter)->generated_data.ind_he + 1) % LTE_FDD_ENB_IND_HE_MAX_VALUE;
+            (*iter)->generated_data.sqn_he = ((*iter)->generated_data.seq_he << LTE_FDD_ENB_IND_HE_N_BITS) | (*iter)->generated_data.ind_he;
+            for(i=0; i<6; i++)
+            {
+                sqn[i] = ((*iter)->generated_data.sqn_he >> (5-i)*8) & 0xFF;
+            }
+
+            // Generate RAND
+            for(i=0; i<4; i++)
+            {
+                rand_val                                     = rand();
+                (*iter)->generated_data.auth_vec.rand[i*4+0] = rand_val & 0xFF;
+                (*iter)->generated_data.auth_vec.rand[i*4+1] = (rand_val >> 8) & 0xFF;
+                (*iter)->generated_data.auth_vec.rand[i*4+2] = (rand_val >> 16) & 0xFF;
+                (*iter)->generated_data.auth_vec.rand[i*4+3] = (rand_val >> 24) & 0xFF;
+            }
+
+            // Generate MAC, RES, CK, IK, and AK
+            liblte_security_milenage_f1((*iter)->stored_data.k,
+                                        (*iter)->generated_data.auth_vec.rand,
+                                        sqn,
+                                        (*iter)->stored_data.amf,
+                                        (*iter)->generated_data.mac);
+            liblte_security_milenage_f2345((*iter)->stored_data.k,
+                                           (*iter)->generated_data.auth_vec.rand,
+                                           (*iter)->generated_data.auth_vec.res,
+                                           (*iter)->generated_data.auth_vec.ck,
+                                           (*iter)->generated_data.auth_vec.ik,
+                                           (*iter)->generated_data.ak);
+
+            // Construct AUTN
+            for(i=0; i<6; i++)
+            {
+                (*iter)->generated_data.auth_vec.autn[i] = sqn[i] ^ (*iter)->generated_data.ak[i];
+            }
+            for(i=0; i<2; i++)
+            {
+                (*iter)->generated_data.auth_vec.autn[6+i] = (*iter)->stored_data.amf[i];
+            }
+            for(i=0; i<8; i++)
+            {
+                (*iter)->generated_data.auth_vec.autn[8+i] = (*iter)->generated_data.mac[i];
+            }
+
+            // Generate Kasme
+            liblte_security_generate_k_asme((*iter)->generated_data.auth_vec.ck,
+                                            (*iter)->generated_data.auth_vec.ik,
+                                            (*iter)->generated_data.ak,
+                                            sqn,
+                                            mcc,
+                                            mnc,
+                                            (*iter)->generated_data.k_asme);
+
+            // Generate K_nas_enc and K_nas_int
+            // FIXME
+
+            // Generate K_enb, K_up_enc, K_rrc_int, and K_rrc_enc
+            // FIXME
+
+            break;
+        }
+    }
+}
+LTE_FDD_ENB_AUTHENTICATION_VECTOR_STRUCT* LTE_fdd_enb_hss::get_auth_vec(LTE_FDD_ENB_USER_ID_STRUCT *id)
+{
+    boost::mutex::scoped_lock                           lock(user_mutex);
+    std::list<LTE_FDD_ENB_HSS_USER_STRUCT *>::iterator  iter;
+    LTE_FDD_ENB_AUTHENTICATION_VECTOR_STRUCT           *auth_vec = NULL;
+
+    for(iter=user_list.begin(); iter!=user_list.end(); iter++)
+    {
+        if(id->imei == (*iter)->id.imei &&
+           id->imsi == (*iter)->id.imsi)
+        {
+            auth_vec = &(*iter)->generated_data.auth_vec;
+
+            break;
+        }
+    }
+
+    return(auth_vec);
 }

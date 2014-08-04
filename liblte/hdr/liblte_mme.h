@@ -25,6 +25,7 @@
     Revision History
     ----------    -------------    --------------------------------------------
     06/15/2014    Ben Wojtowicz    Created file.
+    08/03/2014    Ben Wojtowicz    Added more decoding/encoding.
 
 *******************************************************************************/
 
@@ -141,10 +142,23 @@ LIBLTE_ERROR_ENUM liblte_mme_unpack_location_area_id_ie(uint8                   
                         24.008 v10.2.0 Section 10.5.1.4
 *********************************************************************/
 // Defines
+#define LIBLTE_MME_MOBILE_ID_TYPE_IMSI   0x1
+#define LIBLTE_MME_MOBILE_ID_TYPE_IMEI   0x2
+#define LIBLTE_MME_MOBILE_ID_TYPE_IMEISV 0x3
+#define LIBLTE_MME_MOBILE_ID_TYPE_TMSI   0x4
+#define LIBLTE_MME_MOBILE_ID_TYPE_TMGI   0x5
 // Enums
 // Structs
+typedef struct{
+    uint8 type_of_id;
+    uint8 imsi[15];
+    uint8 imei[15];
+}LIBLTE_MME_MOBILE_ID_STRUCT;
 // Functions
-// FIXME
+LIBLTE_ERROR_ENUM liblte_mme_pack_mobile_id_ie(LIBLTE_MME_MOBILE_ID_STRUCT  *mobile_id,
+                                               uint8                       **ie_ptr);
+LIBLTE_ERROR_ENUM liblte_mme_unpack_mobile_id_ie(uint8                       **ie_ptr,
+                                                 LIBLTE_MME_MOBILE_ID_STRUCT  *mobile_id);
 
 /*********************************************************************
     IE Name: Mobile Station Classmark 2
@@ -340,7 +354,10 @@ LIBLTE_ERROR_ENUM liblte_mme_unpack_additional_update_type_ie(uint8             
 // Enums
 // Structs
 // Functions
-// FIXME
+LIBLTE_ERROR_ENUM liblte_mme_pack_authentication_parameter_autn_ie(uint8  *autn,
+                                                                   uint8 **ie_ptr);
+LIBLTE_ERROR_ENUM liblte_mme_unpack_authentication_parameter_autn_ie(uint8 **ie_ptr,
+                                                                     uint8  *autn);
 
 /*********************************************************************
     IE Name: Authentication Parameter RAND
@@ -359,7 +376,10 @@ LIBLTE_ERROR_ENUM liblte_mme_unpack_additional_update_type_ie(uint8             
 // Enums
 // Structs
 // Functions
-// FIXME
+LIBLTE_ERROR_ENUM liblte_mme_pack_authentication_parameter_rand_ie(uint8  *rand_val,
+                                                                   uint8 **ie_ptr);
+LIBLTE_ERROR_ENUM liblte_mme_unpack_authentication_parameter_rand_ie(uint8 **ie_ptr,
+                                                                     uint8  *rand_val);
 
 /*********************************************************************
     IE Name: Authentication Response Parameter
@@ -461,10 +481,47 @@ LIBLTE_ERROR_ENUM liblte_mme_unpack_drx_parameter_ie(uint8                      
     Document Reference: 24.301 v10.2.0 Section 9.9.3.9
 *********************************************************************/
 // Defines
+#define LIBLTE_MME_EMM_CAUSE_IMSI_UNKNOWN_IN_HSS                                 0x02
+#define LIBLTE_MME_EMM_CAUSE_ILLEGAL_UE                                          0x03
+#define LIBLTE_MME_EMM_CAUSE_IMEI_NOT_ACCEPTED                                   0x05
+#define LIBLTE_MME_EMM_CAUSE_ILLEGAL_ME                                          0x06
+#define LIBLTE_MME_EMM_CAUSE_EPS_SERVICES_NOT_ALLOWED                            0x07
+#define LIBLTE_MME_EMM_CAUSE_EPS_SERVICES_AND_NON_EPS_SERVICES_NOT_ALLOWED       0x08
+#define LIBLTE_MME_EMM_CAUSE_UE_IDENTITY_CANNOT_BE_DERIVED_BY_THE_NETWORK        0x09
+#define LIBLTE_MME_EMM_CAUSE_IMPLICITLY_DETACHED                                 0x0A
+#define LIBLTE_MME_EMM_CAUSE_PLMN_NOT_ALLOWED                                    0x0B
+#define LIBLTE_MME_EMM_CAUSE_TRACKING_AREA_NOT_ALLOWED                           0x0C
+#define LIBLTE_MME_EMM_CAUSE_ROAMING_NOT_ALLOWED_IN_THIS_TRACKING_AREA           0x0D
+#define LIBLTE_MME_EMM_CAUSE_EPS_SERVICES_NOT_ALLOWED_IN_THIS_PLMN               0x0E
+#define LIBLTE_MME_EMM_CAUSE_NO_SUITABLE_CELLS_IN_TRACKING_AREA                  0x0F
+#define LIBLTE_MME_EMM_CAUSE_MSC_TEMPORARILY_NOT_REACHABLE                       0x10
+#define LIBLTE_MME_EMM_CAUSE_NETWORK_FAILURE                                     0x11
+#define LIBLTE_MME_EMM_CAUSE_CS_DOMAIN_NOT_AVAILABLE                             0x12
+#define LIBLTE_MME_EMM_CAUSE_ESM_FAILURE                                         0x13
+#define LIBLTE_MME_EMM_CAUSE_MAC_FAILURE                                         0x14
+#define LIBLTE_MME_EMM_CAUSE_SYNCH_FAILURE                                       0x15
+#define LIBLTE_MME_EMM_CAUSE_CONGESTION                                          0x16
+#define LIBLTE_MME_EMM_CAUSE_UE_SECURITY_CAPABILITIES_MISMATCH                   0x17
+#define LIBLTE_MME_EMM_CAUSE_SECURITY_MODE_REJECTED_UNSPECIFIED                  0x18
+#define LIBLTE_MME_EMM_CAUSE_NOT_AUTHORIZED_FOR_THIS_CSG                         0x19
+#define LIBLTE_MME_EMM_CAUSE_NON_EPS_AUTHENTICATION_UNACCEPTABLE                 0x1A
+#define LIBLTE_MME_EMM_CAUSE_CS_SERVICE_TEMPORARILY_NOT_AVAILABLE                0x27
+#define LIBLTE_MME_EMM_CAUSE_NO_EPS_BEARER_CONTEXT_ACTIVATED                     0x28
+#define LIBLTE_MME_EMM_CAUSE_SEMANTICALLY_INCORRECT_MESSAGE                      0x5F
+#define LIBLTE_MME_EMM_CAUSE_INVALID_MANDATORY_INFORMATION                       0x60
+#define LIBLTE_MME_EMM_CAUSE_MESSAGE_TYPE_NON_EXISTENT_OR_NOT_IMPLEMENTED        0x61
+#define LIBLTE_MME_EMM_CAUSE_MESSAGE_TYPE_NOT_COMPATIBLE_WITH_THE_PROTOCOL_STATE 0x62
+#define LIBLTE_MME_EMM_CAUSE_INFORMATION_ELEMENT_NON_EXISTENT_OR_NOT_IMPLEMENTED 0x63
+#define LIBLTE_MME_EMM_CAUSE_CONDITIONAL_IE_ERROR                                0x64
+#define LIBLTE_MME_EMM_CAUSE_MESSAGE_NOT_COMPATIBLE_WITH_THE_PROTOCOL_STATE      0x65
+#define LIBLTE_MME_EMM_CAUSE_PROTOCOL_ERROR_UNSPECIFIED                          0x6F
 // Enums
 // Structs
 // Functions
-// FIXME
+LIBLTE_ERROR_ENUM liblte_mme_pack_emm_cause_ie(uint8   emm_cause,
+                                               uint8 **ie_ptr);
+LIBLTE_ERROR_ENUM liblte_mme_unpack_emm_cause_ie(uint8 **ie_ptr,
+                                                 uint8  *emm_cause);
 
 /*********************************************************************
     IE Name: EPS Attach Result
@@ -617,7 +674,10 @@ LIBLTE_ERROR_ENUM liblte_mme_unpack_esm_message_container_ie(uint8              
 // Enums
 // Structs
 // Functions
-// FIXME
+LIBLTE_ERROR_ENUM liblte_mme_pack_gprs_timer_2_ie(uint8   value,
+                                                  uint8 **ie_ptr);
+LIBLTE_ERROR_ENUM liblte_mme_unpack_gprs_timer_2_ie(uint8 **ie_ptr,
+                                                    uint8  *value);
 
 /*********************************************************************
     IE Name: GPRS Timer 3
@@ -642,10 +702,19 @@ LIBLTE_ERROR_ENUM liblte_mme_unpack_esm_message_container_ie(uint8              
                         24.008 v10.2.0 Section 10.5.5.9
 *********************************************************************/
 // Defines
+#define LIBLTE_MME_ID_TYPE_2_IMSI   0x1
+#define LIBLTE_MME_ID_TYPE_2_IMEI   0x2
+#define LIBLTE_MME_ID_TYPE_2_IMEISV 0x3
+#define LIBLTE_MME_ID_TYPE_2_TMSI   0x4
 // Enums
 // Structs
 // Functions
-// FIXME
+LIBLTE_ERROR_ENUM liblte_mme_pack_identity_type_2_ie(uint8   id_type,
+                                                     uint8   bit_offset,
+                                                     uint8 **ie_ptr);
+LIBLTE_ERROR_ENUM liblte_mme_unpack_identity_type_2_ie(uint8 **ie_ptr,
+                                                       uint8   bit_offset,
+                                                       uint8  *id_type);
 
 /*********************************************************************
     IE Name: IMEISV Request
@@ -1646,10 +1715,22 @@ LIBLTE_ERROR_ENUM liblte_mme_parse_msg_header(LIBLTE_BYTE_MSG_STRUCT *msg,
     Document Reference: 24.301 v10.2.0 Section 8.2.3
 *********************************************************************/
 // Defines
+#define LIBLTE_MME_ESM_MSG_CONTAINER_IEI 0x78
+#define LIBLTE_MME_T3446_VALUE_IEI       0x5F
 // Enums
 // Structs
+typedef struct{
+    LIBLTE_BYTE_MSG_STRUCT esm_msg;
+    uint8                  emm_cause;
+    uint8                  t3446_value;
+    bool                   esm_msg_present;
+    bool                   t3446_value_present;
+}LIBLTE_MME_ATTACH_REJECT_MSG_STRUCT;
 // Functions
-// FIXME
+LIBLTE_ERROR_ENUM liblte_mme_pack_attach_reject_msg(LIBLTE_MME_ATTACH_REJECT_MSG_STRUCT *attach_rej,
+                                                    LIBLTE_BYTE_MSG_STRUCT              *msg);
+LIBLTE_ERROR_ENUM liblte_mme_unpack_attach_reject_msg(LIBLTE_BYTE_MSG_STRUCT              *msg,
+                                                      LIBLTE_MME_ATTACH_REJECT_MSG_STRUCT *attach_rej);
 
 /*********************************************************************
     Message Name: Attach Request
@@ -1757,8 +1838,16 @@ LIBLTE_ERROR_ENUM liblte_mme_unpack_attach_request_msg(LIBLTE_BYTE_MSG_STRUCT   
 // Defines
 // Enums
 // Structs
+typedef struct{
+    LIBLTE_MME_NAS_KEY_SET_ID_STRUCT nas_ksi;
+    uint8                            autn[16];
+    uint8                            rand[16];
+}LIBLTE_MME_AUTHENTICATION_REQUEST_MSG_STRUCT;
 // Functions
-// FIXME
+LIBLTE_ERROR_ENUM liblte_mme_pack_authentication_request_msg(LIBLTE_MME_AUTHENTICATION_REQUEST_MSG_STRUCT *auth_req,
+                                                             LIBLTE_BYTE_MSG_STRUCT                       *msg);
+LIBLTE_ERROR_ENUM liblte_mme_unpack_authentication_request_msg(LIBLTE_BYTE_MSG_STRUCT                       *msg,
+                                                               LIBLTE_MME_AUTHENTICATION_REQUEST_MSG_STRUCT *auth_req);
 
 /*********************************************************************
     Message Name: Authentication Response
@@ -1919,8 +2008,14 @@ LIBLTE_ERROR_ENUM liblte_mme_unpack_attach_request_msg(LIBLTE_BYTE_MSG_STRUCT   
 // Defines
 // Enums
 // Structs
+typedef struct{
+    uint8 id_type;
+}LIBLTE_MME_ID_REQUEST_MSG_STRUCT;
 // Functions
-// FIXME
+LIBLTE_ERROR_ENUM liblte_mme_pack_identity_request_msg(LIBLTE_MME_ID_REQUEST_MSG_STRUCT *id_req,
+                                                       LIBLTE_BYTE_MSG_STRUCT           *msg);
+LIBLTE_ERROR_ENUM liblte_mme_unpack_identity_request_msg(LIBLTE_BYTE_MSG_STRUCT           *msg,
+                                                         LIBLTE_MME_ID_REQUEST_MSG_STRUCT *id_req);
 
 /*********************************************************************
     Message Name: Identity Response
@@ -1934,8 +2029,14 @@ LIBLTE_ERROR_ENUM liblte_mme_unpack_attach_request_msg(LIBLTE_BYTE_MSG_STRUCT   
 // Defines
 // Enums
 // Structs
+typedef struct{
+    LIBLTE_MME_MOBILE_ID_STRUCT mobile_id;
+}LIBLTE_MME_ID_RESPONSE_MSG_STRUCT;
 // Functions
-// FIXME
+LIBLTE_ERROR_ENUM liblte_mme_pack_identity_response_msg(LIBLTE_MME_ID_RESPONSE_MSG_STRUCT *id_resp,
+                                                        LIBLTE_BYTE_MSG_STRUCT            *msg);
+LIBLTE_ERROR_ENUM liblte_mme_unpack_identity_response_msg(LIBLTE_BYTE_MSG_STRUCT            *msg,
+                                                          LIBLTE_MME_ID_RESPONSE_MSG_STRUCT *id_resp);
 
 /*********************************************************************
     Message Name: Security Mode Command

@@ -32,6 +32,7 @@
     03/26/2014    Ben Wojtowicz    Using the latest LTE library.
     05/04/2014    Ben Wojtowicz    Added PCAP support.
     06/15/2014    Ben Wojtowicz    Omitting path from __FILE__.
+    08/03/2014    Ben Wojtowicz    Added support for limiting PCAP output.
 
 *******************************************************************************/
 
@@ -799,6 +800,15 @@ void LTE_fdd_enb_cnfg_db::construct_sys_info(void)
     }
     sys_info.si_periodicity_T = liblte_rrc_si_periodicity_num[sys_info.sib1.sched_info[0].si_periodicity];
     sys_info.si_win_len       = liblte_rrc_si_window_length_num[sys_info.sib1.si_window_length];
+
+    // PCAP variables
+    sys_info.mib_pcap_sent       = false;
+    sys_info.sib1_pcap_sent      = false;
+    sys_info.sib_pcap_sent[0]    = false;
+    sys_info.sib_pcap_sent[1]    = false;
+    sys_info.sib_pcap_sent[2]    = false;
+    sys_info.sib_pcap_sent[3]    = false;
+    sys_info.continuous_sib_pcap = false;
 
     // Update all layers
     phy->update_sys_info();

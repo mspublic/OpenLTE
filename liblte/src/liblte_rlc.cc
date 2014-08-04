@@ -25,6 +25,8 @@
     Revision History
     ----------    -------------    --------------------------------------------
     06/15/2014    Ben Wojtowicz    Created file.
+    08/03/2014    Ben Wojtowicz    Added NACK support and using the common
+                                   value_2_bits and bits_2_value functions.
 
 *******************************************************************************/
 
@@ -50,27 +52,6 @@
 
 
 /*******************************************************************************
-                              LOCAL FUNCTION PROTOTYPES
-*******************************************************************************/
-
-/*********************************************************************
-    Name: rlc_value_2_bits
-
-    Description: Converts a value to a bit string
-*********************************************************************/
-void rlc_value_2_bits(uint32   value,
-                      uint8  **bits,
-                      uint32   N_bits);
-
-/*********************************************************************
-    Name: rlc_bits_2_value
-
-    Description: Converts a bit string to a value
-*********************************************************************/
-uint32 rlc_bits_2_value(uint8  **bits,
-                        uint32   N_bits);
-
-/*******************************************************************************
                               PDU FUNCTIONS
 *******************************************************************************/
 
@@ -89,30 +70,60 @@ uint32 rlc_bits_2_value(uint8  **bits,
 LIBLTE_ERROR_ENUM liblte_rlc_pack_amd_pdu(LIBLTE_RLC_AMD_PDU_STRUCT *amd,
                                           LIBLTE_BIT_MSG_STRUCT     *pdu)
 {
-    // FIXME
+    return(liblte_rlc_pack_amd_pdu(amd, &amd->data, pdu));
+}
+LIBLTE_ERROR_ENUM liblte_rlc_pack_amd_pdu(LIBLTE_RLC_AMD_PDU_STRUCT *amd,
+                                          LIBLTE_BIT_MSG_STRUCT     *data,
+                                          LIBLTE_BIT_MSG_STRUCT     *pdu)
+{
+    LIBLTE_ERROR_ENUM  err     = LIBLTE_ERROR_INVALID_INPUTS;
+    uint8             *pdu_ptr = pdu->msg;
+
+    if(amd  != NULL &&
+       data != NULL &&
+       pdu  != NULL)
+    {
+        // Header
+        value_2_bits(amd->hdr.dc,                            &pdu_ptr,  1);
+        value_2_bits(amd->hdr.rf,                            &pdu_ptr,  1);
+        value_2_bits(amd->hdr.p,                             &pdu_ptr,  1);
+        value_2_bits(amd->hdr.fi,                            &pdu_ptr,  2);
+        value_2_bits(LIBLTE_RLC_E_FIELD_HEADER_NOT_EXTENDED, &pdu_ptr,  1);
+        value_2_bits(amd->hdr.sn,                            &pdu_ptr, 10);
+
+        // Data
+        memcpy(pdu_ptr, data->msg, data->N_bits);
+        pdu_ptr += data->N_bits;
+
+        // Fill in the number of bits used
+        pdu->N_bits = pdu_ptr - pdu->msg;
+
+        err = LIBLTE_SUCCESS;
+    }
+
+    return(err);
 }
 LIBLTE_ERROR_ENUM liblte_rlc_unpack_amd_pdu(LIBLTE_BIT_MSG_STRUCT     *pdu,
                                             LIBLTE_RLC_AMD_PDU_STRUCT *amd)
 {
-    LIBLTE_ERROR_ENUM         err     = LIBLTE_ERROR_INVALID_INPUTS;
-    uint8                    *pdu_ptr = pdu->msg;
-    LIBLTE_RLC_DC_FIELD_ENUM  dc;
-    LIBLTE_RLC_E_FIELD_ENUM   e;
+    LIBLTE_ERROR_ENUM        err     = LIBLTE_ERROR_INVALID_INPUTS;
+    uint8                   *pdu_ptr = pdu->msg;
+    LIBLTE_RLC_E_FIELD_ENUM  e;
 
     if(pdu != NULL &&
        amd != NULL)
     {
         // Header
-        dc = (LIBLTE_RLC_DC_FIELD_ENUM)rlc_bits_2_value(&pdu_ptr, 1);
+        amd->hdr.dc = (LIBLTE_RLC_DC_FIELD_ENUM)bits_2_value(&pdu_ptr, 1);
 
-        if(LIBLTE_RLC_DC_FIELD_DATA_PDU == dc)
+        if(LIBLTE_RLC_DC_FIELD_DATA_PDU == amd->hdr.dc)
         {
             // Header
-            amd->hdr.rf = (LIBLTE_RLC_RF_FIELD_ENUM)rlc_bits_2_value(&pdu_ptr, 1);
-            amd->hdr.p  = (LIBLTE_RLC_P_FIELD_ENUM)rlc_bits_2_value(&pdu_ptr, 1);
-            amd->hdr.fi = (LIBLTE_RLC_FI_FIELD_ENUM)rlc_bits_2_value(&pdu_ptr, 2);
-            e           = (LIBLTE_RLC_E_FIELD_ENUM)rlc_bits_2_value(&pdu_ptr, 1);
-            amd->hdr.sn = rlc_bits_2_value(&pdu_ptr, 10);
+            amd->hdr.rf = (LIBLTE_RLC_RF_FIELD_ENUM)bits_2_value(&pdu_ptr, 1);
+            amd->hdr.p  = (LIBLTE_RLC_P_FIELD_ENUM)bits_2_value(&pdu_ptr, 1);
+            amd->hdr.fi = (LIBLTE_RLC_FI_FIELD_ENUM)bits_2_value(&pdu_ptr, 2);
+            e           = (LIBLTE_RLC_E_FIELD_ENUM)bits_2_value(&pdu_ptr, 1);
+            amd->hdr.sn = bits_2_value(&pdu_ptr, 10);
 
             if(LIBLTE_RLC_RF_FIELD_AMD_PDU_SEGMENT == amd->hdr.rf)
             {
@@ -131,6 +142,8 @@ LIBLTE_ERROR_ENUM liblte_rlc_unpack_amd_pdu(LIBLTE_BIT_MSG_STRUCT     *pdu,
             memcpy(amd->data.msg, pdu_ptr, amd->data.N_bits);
 
             err = LIBLTE_SUCCESS;
+        }else{
+            // FIXME: Signal that this is a status PDU
         }
     }
 
@@ -147,26 +160,58 @@ LIBLTE_ERROR_ENUM liblte_rlc_pack_status_pdu(LIBLTE_RLC_STATUS_PDU_STRUCT *statu
 {
     LIBLTE_ERROR_ENUM  err     = LIBLTE_ERROR_INVALID_INPUTS;
     uint8             *pdu_ptr = pdu->msg;
+    uint32             i;
 
     if(status != NULL &&
        pdu    != NULL)
     {
         // D/C Field
-        rlc_value_2_bits(LIBLTE_RLC_DC_FIELD_CONTROL_PDU, &pdu_ptr, 1);
+        value_2_bits(LIBLTE_RLC_DC_FIELD_CONTROL_PDU, &pdu_ptr, 1);
 
         // CPT Field
-        rlc_value_2_bits(LIBLTE_RLC_CPT_FIELD_STATUS_PDU, &pdu_ptr, 3);
+        value_2_bits(LIBLTE_RLC_CPT_FIELD_STATUS_PDU, &pdu_ptr, 3);
 
         // ACK SN
-        rlc_value_2_bits(status->ack_sn, &pdu_ptr, 10);
+        value_2_bits(status->ack_sn, &pdu_ptr, 10);
 
         // E1
-        rlc_value_2_bits(LIBLTE_RLC_E1_FIELD_NOT_EXTENDED, &pdu_ptr, 1);
+        if(status->N_nack == 0)
+        {
+            value_2_bits(LIBLTE_RLC_E1_FIELD_NOT_EXTENDED, &pdu_ptr, 1);
+        }else{
+            value_2_bits(LIBLTE_RLC_E1_FIELD_EXTENDED, &pdu_ptr, 1);
+        }
 
-        // Padding
-        rlc_value_2_bits(0, &pdu_ptr, 1);
+        for(i=0; i<status->N_nack; i++)
+        {
+            // NACK SN
+            value_2_bits(status->nack_sn[i], &pdu_ptr, 10);
+
+            // E1
+            if(i == (status->N_nack-1))
+            {
+                value_2_bits(LIBLTE_RLC_E1_FIELD_NOT_EXTENDED, &pdu_ptr, 1);
+            }else{
+                value_2_bits(LIBLTE_RLC_E1_FIELD_EXTENDED, &pdu_ptr, 1);
+            }
+
+            // E2
+            value_2_bits(LIBLTE_RLC_E2_FIELD_NOT_EXTENDED, &pdu_ptr, 1);
+
+            // FIXME: Skipping SOstart and SOend
+        }
 
         pdu->N_bits = pdu_ptr - pdu->msg;
+
+        // Padding
+        if((pdu->N_bits % 8) != 0)
+        {
+            for(i=0; i<(8 - (pdu->N_bits % 8)); i++)
+            {
+                value_2_bits(0, &pdu_ptr, 1);
+            }
+            pdu->N_bits = pdu_ptr - pdu->msg;
+        }
 
         err = LIBLTE_SUCCESS;
     }
@@ -176,47 +221,38 @@ LIBLTE_ERROR_ENUM liblte_rlc_pack_status_pdu(LIBLTE_RLC_STATUS_PDU_STRUCT *statu
 LIBLTE_ERROR_ENUM liblte_rlc_unpack_status_pdu(LIBLTE_BIT_MSG_STRUCT        *pdu,
                                                LIBLTE_RLC_STATUS_PDU_STRUCT *status)
 {
-    // FIXME
-}
+    LIBLTE_ERROR_ENUM         err     = LIBLTE_ERROR_INVALID_INPUTS;
+    uint8                    *pdu_ptr = pdu->msg;
+    LIBLTE_RLC_DC_FIELD_ENUM  dc;
+    LIBLTE_RLC_E1_FIELD_ENUM  e;
+    uint8                     cpt;
 
-/*******************************************************************************
-                              LOCAL FUNCTIONS
-*******************************************************************************/
-
-/*********************************************************************
-    Name: rlc_value_2_bits
-
-    Description: Converts a value to a bit string
-*********************************************************************/
-void rlc_value_2_bits(uint32   value,
-                      uint8  **bits,
-                      uint32   N_bits)
-{
-    uint32 i;
-
-    for(i=0; i<N_bits; i++)
+    if(pdu    != NULL &&
+       status != NULL)
     {
-        (*bits)[i] = (value >> (N_bits-i-1)) & 0x1;
+        // D/C Field
+        dc = (LIBLTE_RLC_DC_FIELD_ENUM)bits_2_value(&pdu_ptr, 1);
+
+        if(LIBLTE_RLC_DC_FIELD_CONTROL_PDU == dc)
+        {
+            cpt = bits_2_value(&pdu_ptr, 3);
+
+            if(LIBLTE_RLC_CPT_FIELD_STATUS_PDU == cpt)
+            {
+                status->ack_sn = bits_2_value(&pdu_ptr, 10);
+                e              = (LIBLTE_RLC_E1_FIELD_ENUM)bits_2_value(&pdu_ptr, 1);
+                status->N_nack = 0;
+                while(LIBLTE_RLC_E1_FIELD_EXTENDED == e)
+                {
+                    status->nack_sn[status->N_nack++] = bits_2_value(&pdu_ptr, 10);
+                    e                                 = (LIBLTE_RLC_E1_FIELD_ENUM)bits_2_value(&pdu_ptr, 1);
+                    if(LIBLTE_RLC_E2_FIELD_EXTENDED == bits_2_value(&pdu_ptr, 1))
+                    {
+                        // FIXME: Skipping SOstart and SOend
+                        bits_2_value(&pdu_ptr, 29);
+                    }
+                }
+            }
+        }
     }
-    *bits += N_bits;
-}
-
-/*********************************************************************
-    Name: rlc_bits_2_value
-
-    Description: Converts a bit string to a value
-*********************************************************************/
-uint32 rlc_bits_2_value(uint8  **bits,
-                        uint32   N_bits)
-{
-    uint32 value = 0;
-    uint32 i;
-
-    for(i=0; i<N_bits; i++)
-    {
-        value |= (*bits)[i] << (N_bits-i-1);
-    }
-    *bits += N_bits;
-
-    return(value);
 }

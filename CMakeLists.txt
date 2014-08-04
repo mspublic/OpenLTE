@@ -23,7 +23,7 @@
 ########################################################################
 cmake_minimum_required(VERSION 2.6)
 project(openLTE CXX C)
-set(openLTE_version 0.14.1)
+set(openLTE_version 0.15.0)
 enable_testing()
 
 #select the release build type by default to get optimization flags
@@ -93,6 +93,7 @@ find_package(Gnuradio "3.7.0")
 find_package(GnuradioOsmosdr)
 find_package(Uhd)
 find_package(FFTW3F)
+find_package(Polarssl)
 
 if(NOT GNURADIO_RUNTIME_FOUND)
     message(FATAL_ERROR "GNURadio required to compile openLTE")

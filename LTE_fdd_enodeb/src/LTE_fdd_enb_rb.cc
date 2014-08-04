@@ -28,6 +28,9 @@
     05/04/2014    Ben Wojtowicz    Created file
     06/15/2014    Ben Wojtowicz    Added more states and procedures, QoS, MME,
                                    RLC, and uplink scheduling functionality.
+    08/03/2014    Ben Wojtowicz    Added MME procedures/states, RRC NAS support,
+                                   RRC transaction id, PDCP sequence numbers,
+                                   and RLC transmit variables.
 
 *******************************************************************************/
 
@@ -38,6 +41,7 @@
 #include "LTE_fdd_enb_rb.h"
 #include "LTE_fdd_enb_timer_mgr.h"
 #include "LTE_fdd_enb_user.h"
+#include "LTE_fdd_enb_rlc.h"
 #include "LTE_fdd_enb_mac.h"
 
 /*******************************************************************************
@@ -65,21 +69,24 @@
 LTE_fdd_enb_rb::LTE_fdd_enb_rb(LTE_FDD_ENB_RB_ENUM  _rb,
                                LTE_fdd_enb_user    *_user)
 {
-    LTE_fdd_enb_timer_mgr *timer_mgr = LTE_fdd_enb_timer_mgr::get_instance();
-
     rb   = _rb;
     user = _user;
 
-    timer_mgr->stop_timer(ul_sched_timer_id);
+    ul_sched_timer_id          = LTE_FDD_ENB_INVALID_TIMER_ID;
+    t_poll_retransmit_timer_id = LTE_FDD_ENB_INVALID_TIMER_ID;
 
     if(LTE_FDD_ENB_RB_SRB0 == rb)
     {
+        mme_procedure = LTE_FDD_ENB_MME_PROC_IDLE;
+        mme_state     = LTE_FDD_ENB_MME_STATE_IDLE;
         rrc_procedure = LTE_FDD_ENB_RRC_PROC_IDLE;
         rrc_state     = LTE_FDD_ENB_RRC_STATE_IDLE;
         pdcp_config   = LTE_FDD_ENB_PDCP_CONFIG_N_A;
         rlc_config    = LTE_FDD_ENB_RLC_CONFIG_TM;
         mac_config    = LTE_FDD_ENB_MAC_CONFIG_TM;
     }else if(LTE_FDD_ENB_RB_SRB1 == rb){
+        mme_procedure = LTE_FDD_ENB_MME_PROC_IDLE;
+        mme_state     = LTE_FDD_ENB_MME_STATE_IDLE;
         rrc_procedure = LTE_FDD_ENB_RRC_PROC_IDLE;
         rrc_state     = LTE_FDD_ENB_RRC_STATE_IDLE;
         pdcp_config   = LTE_FDD_ENB_PDCP_CONFIG_N_A;
@@ -87,13 +94,24 @@ LTE_fdd_enb_rb::LTE_fdd_enb_rb(LTE_FDD_ENB_RB_ENUM  _rb,
         mac_config    = LTE_FDD_ENB_MAC_CONFIG_TM;
     }
 
+    // RRC
+    rrc_transaction_id = 0;
+
+    // PDCP
+    pdcp_rx_sn = 0;
+    pdcp_tx_sn = 0;
+
     // RLC
     rlc_reception_buffer.clear();
+    rlc_transmission_buffer.clear();
     rlc_vrr              = 0;
     rlc_vrmr             = rlc_vrr + LIBLTE_RLC_AM_WINDOW_SIZE;
     rlc_vrh              = 0;
     rlc_first_segment_sn = 0xFFFF;
     rlc_last_segment_sn  = 0xFFFF;
+    rlc_vta              = 0;
+    rlc_vtms             = rlc_vta + LIBLTE_RLC_AM_WINDOW_SIZE;
+    rlc_vts              = 0;
 
     // Setup the QoS
     avail_qos[0] = (LTE_FDD_ENB_QOS_STRUCT){ 0,   0};
@@ -102,6 +120,9 @@ LTE_fdd_enb_rb::LTE_fdd_enb_rb(LTE_FDD_ENB_RB_ENUM  _rb,
 }
 LTE_fdd_enb_rb::~LTE_fdd_enb_rb()
 {
+    LTE_fdd_enb_timer_mgr *timer_mgr = LTE_fdd_enb_timer_mgr::get_instance();
+
+    timer_mgr->stop_timer(ul_sched_timer_id);
 }
 
 /******************/
@@ -127,6 +148,46 @@ LTE_FDD_ENB_ERROR_ENUM LTE_fdd_enb_rb::delete_next_mme_nas_msg(void)
 {
     return(delete_next_msg(&mme_nas_msg_queue_mutex, &mme_nas_msg_queue));
 }
+void LTE_fdd_enb_rb::set_mme_procedure(LTE_FDD_ENB_MME_PROC_ENUM procedure)
+{
+    LTE_fdd_enb_interface *interface = LTE_fdd_enb_interface::get_instance();
+
+    interface->send_debug_msg(LTE_FDD_ENB_DEBUG_TYPE_INFO,
+                              LTE_FDD_ENB_DEBUG_LEVEL_RB,
+                              __FILE__,
+                              __LINE__,
+                              "%s MME procedure moving from %s to %s for RNTI=%u",
+                              LTE_fdd_enb_rb_text[rb],
+                              LTE_fdd_enb_mme_proc_text[mme_procedure],
+                              LTE_fdd_enb_mme_proc_text[procedure],
+                              user->get_c_rnti());
+
+    mme_procedure = procedure;
+}
+LTE_FDD_ENB_MME_PROC_ENUM LTE_fdd_enb_rb::get_mme_procedure(void)
+{
+    return(mme_procedure);
+}
+void LTE_fdd_enb_rb::set_mme_state(LTE_FDD_ENB_MME_STATE_ENUM state)
+{
+    LTE_fdd_enb_interface *interface = LTE_fdd_enb_interface::get_instance();
+
+    interface->send_debug_msg(LTE_FDD_ENB_DEBUG_TYPE_INFO,
+                              LTE_FDD_ENB_DEBUG_LEVEL_RB,
+                              __FILE__,
+                              __LINE__,
+                              "%s MME state moving from %s to %s for RNTI=%u",
+                              LTE_fdd_enb_rb_text[rb],
+                              LTE_fdd_enb_mme_state_text[mme_state],
+                              LTE_fdd_enb_mme_state_text[state],
+                              user->get_c_rnti());
+
+    mme_state = state;
+}
+LTE_FDD_ENB_MME_STATE_ENUM LTE_fdd_enb_rb::get_mme_state(void)
+{
+    return(mme_state);
+}
 
 /*************/
 /*    RRC    */
@@ -142,6 +203,18 @@ LTE_FDD_ENB_ERROR_ENUM LTE_fdd_enb_rb::get_next_rrc_pdu(LIBLTE_BIT_MSG_STRUCT **
 LTE_FDD_ENB_ERROR_ENUM LTE_fdd_enb_rb::delete_next_rrc_pdu(void)
 {
     return(delete_next_msg(&rrc_pdu_queue_mutex, &rrc_pdu_queue));
+}
+void LTE_fdd_enb_rb::queue_rrc_nas_msg(LIBLTE_BYTE_MSG_STRUCT *nas_msg)
+{
+    queue_msg(nas_msg, &rrc_nas_msg_queue_mutex, &rrc_nas_msg_queue);
+}
+LTE_FDD_ENB_ERROR_ENUM LTE_fdd_enb_rb::get_next_rrc_nas_msg(LIBLTE_BYTE_MSG_STRUCT **nas_msg)
+{
+    return(get_next_msg(&rrc_nas_msg_queue_mutex, &rrc_nas_msg_queue, nas_msg));
+}
+LTE_FDD_ENB_ERROR_ENUM LTE_fdd_enb_rb::delete_next_rrc_nas_msg(void)
+{
+    return(delete_next_msg(&rrc_nas_msg_queue_mutex, &rrc_nas_msg_queue));
 }
 void LTE_fdd_enb_rb::set_rrc_procedure(LTE_FDD_ENB_RRC_PROC_ENUM procedure)
 {
@@ -181,6 +254,14 @@ LTE_FDD_ENB_RRC_STATE_ENUM LTE_fdd_enb_rb::get_rrc_state(void)
 {
     return(rrc_state);
 }
+uint8 LTE_fdd_enb_rb::get_rrc_transaction_id(void)
+{
+    return(rrc_transaction_id);
+}
+void LTE_fdd_enb_rb::set_rrc_transaction_id(uint8 transaction_id)
+{
+    rrc_transaction_id = transaction_id;
+}
 
 /**************/
 /*    PDCP    */
@@ -212,6 +293,22 @@ LTE_FDD_ENB_ERROR_ENUM LTE_fdd_enb_rb::delete_next_pdcp_sdu(void)
 LTE_FDD_ENB_PDCP_CONFIG_ENUM LTE_fdd_enb_rb::get_pdcp_config(void)
 {
     return(pdcp_config);
+}
+uint16 LTE_fdd_enb_rb::get_pdcp_rx_sn(void)
+{
+    return(pdcp_rx_sn);
+}
+void LTE_fdd_enb_rb::set_pdcp_rx_sn(uint16 rx_sn)
+{
+    pdcp_rx_sn = rx_sn;
+}
+uint16 LTE_fdd_enb_rb::get_pdcp_tx_sn(void)
+{
+    return(pdcp_tx_sn);
+}
+void LTE_fdd_enb_rb::set_pdcp_tx_sn(uint16 tx_sn)
+{
+    pdcp_tx_sn = tx_sn;
 }
 
 /*************/
@@ -268,23 +365,61 @@ void LTE_fdd_enb_rb::set_rlc_vrh(uint16 vrh)
 }
 void LTE_fdd_enb_rb::rlc_add_to_reception_buffer(LIBLTE_RLC_AMD_PDU_STRUCT *amd_pdu)
 {
-    LIBLTE_BIT_MSG_STRUCT *new_pdu = NULL;
+    std::map<uint16, LIBLTE_BIT_MSG_STRUCT *>::iterator  iter;
+    LIBLTE_BIT_MSG_STRUCT                               *new_pdu = NULL;
 
     new_pdu = new LIBLTE_BIT_MSG_STRUCT;
 
     if(NULL != new_pdu)
     {
-        memcpy(new_pdu, &amd_pdu->data, sizeof(LIBLTE_BIT_MSG_STRUCT));
-        rlc_reception_buffer[amd_pdu->hdr.sn] = new_pdu;
-
-        if(LIBLTE_RLC_FI_FIELD_FULL_SDU == amd_pdu->hdr.fi)
+        iter = rlc_reception_buffer.find(amd_pdu->hdr.sn);
+        if(rlc_reception_buffer.end() == iter)
         {
-            rlc_first_segment_sn = amd_pdu->hdr.sn;
-            rlc_last_segment_sn  = amd_pdu->hdr.sn;
-        }else if(LIBLTE_RLC_FI_FIELD_FIRST_SDU_SEGMENT == amd_pdu->hdr.fi){
-            rlc_first_segment_sn = amd_pdu->hdr.sn;
-        }else if(LIBLTE_RLC_FI_FIELD_LAST_SDU_SEGMENT == amd_pdu->hdr.fi){
-            rlc_last_segment_sn = amd_pdu->hdr.sn;
+            memcpy(new_pdu, &amd_pdu->data, sizeof(LIBLTE_BIT_MSG_STRUCT));
+            rlc_reception_buffer[amd_pdu->hdr.sn] = new_pdu;
+
+            if(LIBLTE_RLC_FI_FIELD_FULL_SDU == amd_pdu->hdr.fi)
+            {
+                rlc_first_segment_sn = amd_pdu->hdr.sn;
+                rlc_last_segment_sn  = amd_pdu->hdr.sn;
+            }else if(LIBLTE_RLC_FI_FIELD_FIRST_SDU_SEGMENT == amd_pdu->hdr.fi){
+                rlc_first_segment_sn = amd_pdu->hdr.sn;
+            }else if(LIBLTE_RLC_FI_FIELD_LAST_SDU_SEGMENT == amd_pdu->hdr.fi){
+                rlc_last_segment_sn = amd_pdu->hdr.sn;
+            }
+        }
+    }
+}
+void LTE_fdd_enb_rb::rlc_get_reception_buffer_status(LIBLTE_RLC_STATUS_PDU_STRUCT *status)
+{
+    std::map<uint16, LIBLTE_BIT_MSG_STRUCT *>::iterator iter;
+    uint32                                              i;
+
+    // Fill in the ACK_SN
+    status->ack_sn = rlc_vrh;
+
+    // Determine if any NACK_SNs are needed
+    status->N_nack = 0;
+    if(rlc_vrh != rlc_vrr)
+    {
+        for(i=rlc_vrr; i<rlc_vrh; i++)
+        {
+            if(i > 0x3FFFF)
+            {
+                i -= 0x3FFFF;
+            }
+
+            iter = rlc_reception_buffer.find(i);
+            if(rlc_reception_buffer.end() == iter)
+            {
+                status->nack_sn[status->N_nack++] = i;
+            }
+        }
+
+        // Update VR(R) if there are no missing frames
+        if(0 == status->N_nack)
+        {
+            set_rlc_vrr(rlc_vrh);
         }
     }
 }
@@ -293,29 +428,129 @@ LTE_FDD_ENB_ERROR_ENUM LTE_fdd_enb_rb::rlc_reassemble(LIBLTE_BIT_MSG_STRUCT *sdu
     std::map<uint16, LIBLTE_BIT_MSG_STRUCT *>::iterator iter;
     LTE_FDD_ENB_ERROR_ENUM                              err = LTE_FDD_ENB_ERROR_CANT_REASSEMBLE_SDU;
     uint32                                              i;
+    bool                                                reassemble = true;
 
     if(0xFFFF != rlc_first_segment_sn &&
        0xFFFF != rlc_last_segment_sn)
     {
-        // Reorder and reassemble the SDU
+        // Make sure all segments are available
         for(i=rlc_first_segment_sn; i<=rlc_last_segment_sn; i++)
         {
-            // FIXME: Error handling
             iter = rlc_reception_buffer.find(i);
-            memcpy(&sdu->msg[sdu->N_bits], (*iter).second->msg, (*iter).second->N_bits);
-            sdu->N_bits += (*iter).second->N_bits;
-            delete (*iter).second;
-            rlc_reception_buffer.erase(iter);
+            if(rlc_reception_buffer.end() == iter)
+            {
+                reassemble = false;
+            }
         }
 
-        // Clear the first/last segment SNs
-        rlc_first_segment_sn = 0xFFFF;
-        rlc_last_segment_sn  = 0xFFFF;
+        if(reassemble)
+        {
+            // Reorder and reassemble the SDU
+            sdu->N_bits = 0;
+            for(i=rlc_first_segment_sn; i<=rlc_last_segment_sn; i++)
+            {
+                iter = rlc_reception_buffer.find(i);
+                memcpy(&sdu->msg[sdu->N_bits], (*iter).second->msg, (*iter).second->N_bits);
+                sdu->N_bits += (*iter).second->N_bits;
+                delete (*iter).second;
+                rlc_reception_buffer.erase(iter);
+            }
 
-        err = LTE_FDD_ENB_ERROR_NONE;
+            // Clear the first/last segment SNs
+            rlc_first_segment_sn = 0xFFFF;
+            rlc_last_segment_sn  = 0xFFFF;
+
+            err = LTE_FDD_ENB_ERROR_NONE;
+        }
     }
 
     return(err);
+}
+uint16 LTE_fdd_enb_rb::get_rlc_vta(void)
+{
+    return(rlc_vta);
+}
+void LTE_fdd_enb_rb::set_rlc_vta(uint16 vta)
+{
+    rlc_vta  = vta;
+    rlc_vtms = rlc_vta + LIBLTE_RLC_AM_WINDOW_SIZE;
+}
+uint16 LTE_fdd_enb_rb::get_rlc_vtms(void)
+{
+    return(rlc_vtms);
+}
+uint16 LTE_fdd_enb_rb::get_rlc_vts(void)
+{
+    return(rlc_vts);
+}
+void LTE_fdd_enb_rb::set_rlc_vts(uint16 vts)
+{
+    rlc_vts = vts;
+}
+void LTE_fdd_enb_rb::rlc_add_to_transmission_buffer(LIBLTE_RLC_AMD_PDU_STRUCT *amd_pdu)
+{
+    LIBLTE_RLC_AMD_PDU_STRUCT *new_pdu = NULL;
+
+    new_pdu = new LIBLTE_RLC_AMD_PDU_STRUCT;
+
+    if(NULL != new_pdu)
+    {
+        memcpy(new_pdu, amd_pdu, sizeof(LIBLTE_RLC_AMD_PDU_STRUCT));
+        rlc_transmission_buffer[amd_pdu->hdr.sn] = new_pdu;
+    }
+}
+void LTE_fdd_enb_rb::rlc_update_transmission_buffer(uint32 ack_sn)
+{
+    std::map<uint16, LIBLTE_RLC_AMD_PDU_STRUCT *>::iterator iter;
+    uint32                                                  i          = rlc_vta;
+    bool                                                    update_vta = true;
+
+    while(i != ack_sn)
+    {
+        iter = rlc_transmission_buffer.find(i);
+        if(rlc_transmission_buffer.end() != iter)
+        {
+            delete (*iter).second;
+            rlc_transmission_buffer.erase(iter);
+            if(update_vta)
+            {
+                set_rlc_vta(i+1);
+            }
+        }else{
+            update_vta = false;
+        }
+        i++;
+        if(i >= 1024)
+        {
+            i = 0;
+        }
+    }
+
+    if(rlc_transmission_buffer.size() == 0)
+    {
+        rlc_stop_t_poll_retransmit();
+    }
+}
+void LTE_fdd_enb_rb::rlc_start_t_poll_retransmit(void)
+{
+    LTE_fdd_enb_timer_mgr *timer_mgr = LTE_fdd_enb_timer_mgr::get_instance();
+    LTE_fdd_enb_timer_cb   timer_expiry_cb(&LTE_fdd_enb_timer_cb_wrapper<LTE_fdd_enb_rb, &LTE_fdd_enb_rb::handle_t_poll_retransmit_timer_expiry>, this);
+
+    timer_mgr->start_timer(45, timer_expiry_cb, &t_poll_retransmit_timer_id);
+}
+void LTE_fdd_enb_rb::rlc_stop_t_poll_retransmit(void)
+{
+    LTE_fdd_enb_timer_mgr *timer_mgr = LTE_fdd_enb_timer_mgr::get_instance();
+
+    timer_mgr->stop_timer(t_poll_retransmit_timer_id);
+    t_poll_retransmit_timer_id = LTE_FDD_ENB_INVALID_TIMER_ID;
+}
+void LTE_fdd_enb_rb::handle_t_poll_retransmit_timer_expiry(uint32 timer_id)
+{
+    LTE_fdd_enb_rlc                                         *rlc  = LTE_fdd_enb_rlc::get_instance();
+    std::map<uint16, LIBLTE_RLC_AMD_PDU_STRUCT *>::iterator  iter = rlc_transmission_buffer.find(rlc_vta);
+
+    rlc->handle_retransmit((*iter).second, user, this);
 }
 
 /*************/
@@ -459,4 +694,12 @@ void LTE_fdd_enb_rb::set_qos(LTE_FDD_ENB_QOS_ENUM _qos)
 LTE_FDD_ENB_QOS_ENUM LTE_fdd_enb_rb::get_qos(void)
 {
     return(qos);
+}
+uint32 LTE_fdd_enb_rb::get_qos_tti_freq(void)
+{
+    return(avail_qos[qos].tti_frequency);
+}
+uint32 LTE_fdd_enb_rb::get_qos_bits_per_subfn(void)
+{
+    return(avail_qos[qos].bits_per_subfn);
 }

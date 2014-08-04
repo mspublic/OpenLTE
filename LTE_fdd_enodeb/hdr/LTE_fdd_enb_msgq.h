@@ -30,6 +30,7 @@
     05/04/2014    Ben Wojtowicz    Added messages for MAC, RLC, PDCP, and RRC
                                    communication.
     06/15/2014    Ben Wojtowicz    Added MME<->RRC messages.
+    08/03/2014    Ben Wojtowicz    Added RRC command messages.
 
 *******************************************************************************/
 
@@ -95,6 +96,7 @@ typedef enum{
 
     // MME -> RRC Messages
     LTE_FDD_ENB_MESSAGE_TYPE_RRC_NAS_MSG_READY,
+    LTE_FDD_ENB_MESSAGE_TYPE_RRC_CMD_READY,
 
     // RRC -> MME Messages
     LTE_FDD_ENB_MESSAGE_TYPE_MME_NAS_MSG_READY,
@@ -115,6 +117,7 @@ static const char LTE_fdd_enb_message_type_text[LTE_FDD_ENB_MESSAGE_TYPE_N_ITEMS
                                                                                           "PDCP sdu ready",
                                                                                           "RRC pdu ready",
                                                                                           "RRC NAS message ready",
+                                                                                          "RRC command ready",
                                                                                           "MME NAS message ready"};
 
 typedef enum{
@@ -214,6 +217,16 @@ typedef struct{
     LTE_fdd_enb_user *user;
     LTE_fdd_enb_rb   *rb;
 }LTE_FDD_ENB_RRC_NAS_MSG_READY_MSG_STRUCT;
+typedef enum{
+    LTE_FDD_ENB_RRC_CMD_RELEASE = 0,
+    LTE_FDD_ENB_RRC_CMD_N_ITEMS,
+}LTE_FDD_ENB_RRC_CMD_ENUM;
+static const char LTE_fdd_enb_rrc_cmd_text[LTE_FDD_ENB_RRC_CMD_N_ITEMS][20] = {"Release"};
+typedef struct{
+    LTE_fdd_enb_user         *user;
+    LTE_fdd_enb_rb           *rb;
+    LTE_FDD_ENB_RRC_CMD_ENUM  cmd;
+}LTE_FDD_ENB_RRC_CMD_READY_MSG_STRUCT;
 
 // RRC -> MME Messages
 typedef struct{
@@ -254,6 +267,7 @@ typedef union{
 
     // MME -> RRC Messages
     LTE_FDD_ENB_RRC_NAS_MSG_READY_MSG_STRUCT rrc_nas_msg_ready;
+    LTE_FDD_ENB_RRC_CMD_READY_MSG_STRUCT     rrc_cmd_ready;
 
     // RRC -> MME Messages
     LTE_FDD_ENB_MME_NAS_MSG_READY_MSG_STRUCT mme_nas_msg_ready;

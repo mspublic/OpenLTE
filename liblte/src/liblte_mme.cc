@@ -25,6 +25,7 @@
     Revision History
     ----------    -------------    --------------------------------------------
     06/15/2014    Ben Wojtowicz    Created file.
+    08/03/2014    Ben Wojtowicz    Added more decoding/encoding.
 
 *******************************************************************************/
 
@@ -46,11 +47,6 @@
 
 /*******************************************************************************
                               GLOBAL VARIABLES
-*******************************************************************************/
-
-
-/*******************************************************************************
-                              LOCAL FUNCTION PROTOTYPES
 *******************************************************************************/
 
 
@@ -139,7 +135,7 @@ LIBLTE_ERROR_ENUM liblte_mme_pack_location_area_id_ie(LIBLTE_MME_LOCATION_AREA_I
     {
         **ie_ptr  = ((lai->mcc/10) % 10) | ((lai->mcc/100) % 10);
         *ie_ptr  += 1;
-        if(lai->mnc > 100)
+        if(lai->mnc < 100)
         {
             **ie_ptr  = 0xF | (lai->mcc % 10);
             *ie_ptr  += 1;
@@ -207,7 +203,79 @@ LIBLTE_ERROR_ENUM liblte_mme_unpack_location_area_id_ie(uint8                   
     Document Reference: 24.301 v10.2.0 Section 9.9.2.3
                         24.008 v10.2.0 Section 10.5.1.4
 *********************************************************************/
-// FIXME
+LIBLTE_ERROR_ENUM liblte_mme_pack_mobile_id_ie(LIBLTE_MME_MOBILE_ID_STRUCT  *mobile_id,
+                                               uint8                       **ie_ptr)
+{
+    LIBLTE_ERROR_ENUM  err = LIBLTE_ERROR_INVALID_INPUTS;
+    uint8             *id;
+    uint32             i;
+
+    if(mobile_id != NULL &&
+       ie_ptr    != NULL)
+    {
+        if(LIBLTE_MME_MOBILE_ID_TYPE_IMSI == mobile_id->type_of_id)
+        {
+            id = mobile_id->imsi;
+        }else if(LIBLTE_MME_MOBILE_ID_TYPE_IMEI == mobile_id->type_of_id){
+            id = mobile_id->imei;
+        }else{
+            // FIXME: Not handling these IDs
+            return(err);
+        }
+
+        **ie_ptr  = (id[0] << 4) | (1 << 3) | mobile_id->type_of_id;
+        *ie_ptr  += 1;
+        for(i=0; i<7; i++)
+        {
+            (*ie_ptr)[i] = (id[i*2+2] << 4) | id[i*2+1];
+        }
+        *ie_ptr += 7;
+
+        err = LIBLTE_SUCCESS;
+    }
+
+    return(err);
+}
+LIBLTE_ERROR_ENUM liblte_mme_unpack_mobile_id_ie(uint8                       **ie_ptr,
+                                                 LIBLTE_MME_MOBILE_ID_STRUCT  *mobile_id)
+{
+    LIBLTE_ERROR_ENUM  err = LIBLTE_ERROR_INVALID_INPUTS;
+    uint8             *id;
+    uint32             length;
+    uint32             i;
+
+    if(ie_ptr    != NULL &&
+       mobile_id != NULL)
+    {
+        length   = **ie_ptr;
+        *ie_ptr += 1;
+
+        mobile_id->type_of_id = **ie_ptr & 0x07;
+
+        if(LIBLTE_MME_MOBILE_ID_TYPE_IMSI == mobile_id->type_of_id)
+        {
+            id = mobile_id->imsi;
+        }else if(LIBLTE_MME_MOBILE_ID_TYPE_IMEI == mobile_id->type_of_id){
+            id = mobile_id->imei;
+        }else{
+            // FIXME: Not handling these IDs
+            return(err);
+        }
+
+        id[0]    = **ie_ptr >> 4;
+        *ie_ptr += 1;
+        for(i=0; i<7; i++)
+        {
+            id[i*2+1] = (*ie_ptr)[i] & 0x0F;
+            id[i*2+2] = (*ie_ptr)[i] >> 4;
+        }
+        *ie_ptr += 7;
+
+        err = LIBLTE_SUCCESS;
+    }
+
+    return(err);
+}
 
 /*********************************************************************
     IE Name: Mobile Station Classmark 2
@@ -453,7 +521,48 @@ LIBLTE_ERROR_ENUM liblte_mme_unpack_additional_update_type_ie(uint8             
     Document Reference: 24.301 v10.2.0 Section 9.9.3.2
                         24.008 v10.2.0 Section 10.5.3.1.1
 *********************************************************************/
-// FIXME
+LIBLTE_ERROR_ENUM liblte_mme_pack_authentication_parameter_autn_ie(uint8  *autn,
+                                                                   uint8 **ie_ptr)
+{
+    LIBLTE_ERROR_ENUM err = LIBLTE_ERROR_INVALID_INPUTS;
+    uint32            i;
+
+    if(autn   != NULL &&
+       ie_ptr != NULL)
+    {
+        (*ie_ptr)[0] = 16;
+        for(i=0; i<16; i++)
+        {
+            (*ie_ptr)[i+1] = autn[i];
+        }
+        *ie_ptr += 17;
+
+        err = LIBLTE_SUCCESS;
+    }
+
+    return(err);
+}
+LIBLTE_ERROR_ENUM liblte_mme_unpack_authentication_parameter_autn_ie(uint8 **ie_ptr,
+                                                                     uint8  *autn)
+{
+    LIBLTE_ERROR_ENUM err = LIBLTE_ERROR_INVALID_INPUTS;
+    uint32            i;
+
+    if(ie_ptr != NULL &&
+       autn   != NULL)
+    {
+        *ie_ptr++;
+        for(i=0; i<16; i++)
+        {
+            autn[i] = (*ie_ptr)[i];
+        }
+        *ie_ptr += 16;
+
+        err = LIBLTE_SUCCESS;
+    }
+
+    return(err);
+}
 
 /*********************************************************************
     IE Name: Authentication Parameter RAND
@@ -468,7 +577,46 @@ LIBLTE_ERROR_ENUM liblte_mme_unpack_additional_update_type_ie(uint8             
     Document Reference: 24.301 v10.2.0 Section 9.9.3.3
                         24.008 v10.2.0 Section 10.5.3.1
 *********************************************************************/
-// FIXME
+LIBLTE_ERROR_ENUM liblte_mme_pack_authentication_parameter_rand_ie(uint8  *rand_val,
+                                                                   uint8 **ie_ptr)
+{
+    LIBLTE_ERROR_ENUM err = LIBLTE_ERROR_INVALID_INPUTS;
+    uint32            i;
+
+    if(rand_val != NULL &&
+       ie_ptr   != NULL)
+    {
+        for(i=0; i<16; i++)
+        {
+            (*ie_ptr)[i] = rand_val[i];
+        }
+        *ie_ptr += 16;
+
+        err = LIBLTE_SUCCESS;
+    }
+
+    return(err);
+}
+LIBLTE_ERROR_ENUM liblte_mme_unpack_authentication_parameter_rand_ie(uint8 **ie_ptr,
+                                                                     uint8  *rand_val)
+{
+    LIBLTE_ERROR_ENUM err = LIBLTE_ERROR_INVALID_INPUTS;
+    uint32            i;
+
+    if(ie_ptr   != NULL &&
+       rand_val != NULL)
+    {
+        for(i=0; i<16; i++)
+        {
+            rand_val[i] = (*ie_ptr)[i];
+        }
+        *ie_ptr += 16;
+
+        err = LIBLTE_SUCCESS;
+    }
+
+    return(err);
+}
 
 /*********************************************************************
     IE Name: Authentication Response Parameter
@@ -570,7 +718,37 @@ LIBLTE_ERROR_ENUM liblte_mme_unpack_drx_parameter_ie(uint8                      
 
     Document Reference: 24.301 v10.2.0 Section 9.9.3.9
 *********************************************************************/
-// FIXME
+LIBLTE_ERROR_ENUM liblte_mme_pack_emm_cause_ie(uint8   emm_cause,
+                                               uint8 **ie_ptr)
+{
+    LIBLTE_ERROR_ENUM err = LIBLTE_ERROR_INVALID_INPUTS;
+
+    if(ie_ptr != NULL)
+    {
+        **ie_ptr  = emm_cause;
+        *ie_ptr  += 1;
+
+        err = LIBLTE_SUCCESS;
+    }
+
+    return(err);
+}
+LIBLTE_ERROR_ENUM liblte_mme_unpack_emm_cause_ie(uint8 **ie_ptr,
+                                                 uint8  *emm_cause)
+{
+    LIBLTE_ERROR_ENUM err = LIBLTE_ERROR_INVALID_INPUTS;
+
+    if(ie_ptr    != NULL &&
+       emm_cause != NULL)
+    {
+        *emm_cause  = **ie_ptr;
+        *ie_ptr    += 1;
+
+        err = LIBLTE_SUCCESS;
+    }
+
+    return(err);
+}
 
 /*********************************************************************
     IE Name: EPS Attach Result
@@ -645,7 +823,7 @@ LIBLTE_ERROR_ENUM liblte_mme_pack_eps_mobile_id_ie(LIBLTE_MME_EPS_MOBILE_ID_STRU
             *ie_ptr  += 1;
             **ie_ptr  = ((eps_mobile_id->guti.mcc/10) % 10) | ((eps_mobile_id->guti.mcc/100) % 10);
             *ie_ptr  += 1;
-            if(eps_mobile_id->guti.mcc > 100)
+            if(eps_mobile_id->guti.mnc < 100)
             {
                 **ie_ptr  = 0xF | (eps_mobile_id->guti.mcc % 10);
                 *ie_ptr  += 1;
@@ -683,7 +861,7 @@ LIBLTE_ERROR_ENUM liblte_mme_pack_eps_mobile_id_ie(LIBLTE_MME_EPS_MOBILE_ID_STRU
             *ie_ptr  += 1;
             for(i=0; i<7; i++)
             {
-                **ie_ptr  = (id[i*2+1] << 4) | id[i*2+2];
+                **ie_ptr  = (id[i*2+2] << 4) | id[i*2+1];
                 *ie_ptr  += 1;
             }
         }
@@ -755,8 +933,8 @@ LIBLTE_ERROR_ENUM liblte_mme_unpack_eps_mobile_id_ie(uint8                      
             *ie_ptr += 1;
             for(i=0; i<7; i++)
             {
-                id[i*2+1]  = **ie_ptr >> 4;
-                id[i*2+2]  = **ie_ptr & 0x0F;
+                id[i*2+1]  = **ie_ptr & 0x0F;
+                id[i*2+2]  = **ie_ptr >> 4;
                 *ie_ptr   += 1;
             }
         }
@@ -872,7 +1050,40 @@ LIBLTE_ERROR_ENUM liblte_mme_unpack_esm_message_container_ie(uint8              
     Document Reference: 24.301 v10.2.0 Section 9.9.3.16A
                         24.008 v10.2.0 Section 10.5.7.4
 *********************************************************************/
-// FIXME
+LIBLTE_ERROR_ENUM liblte_mme_pack_gprs_timer_2_ie(uint8   value,
+                                                  uint8 **ie_ptr)
+{
+    LIBLTE_ERROR_ENUM err = LIBLTE_ERROR_INVALID_INPUTS;
+
+    if(ie_ptr != NULL)
+    {
+        **ie_ptr  = 1;
+        *ie_ptr  += 1;
+        **ie_ptr  = value;
+        *ie_ptr  += 1;
+
+        err = LIBLTE_SUCCESS;
+    }
+
+    return(err);
+}
+LIBLTE_ERROR_ENUM liblte_mme_unpack_gprs_timer_2_ie(uint8 **ie_ptr,
+                                                    uint8  *value)
+{
+    LIBLTE_ERROR_ENUM err = LIBLTE_ERROR_INVALID_INPUTS;
+
+    if(ie_ptr != NULL &&
+       value  != NULL)
+    {
+        *ie_ptr += 1;
+        *value   = **ie_ptr;
+        *ie_ptr += 1;
+
+        err = LIBLTE_SUCCESS;
+    }
+
+    return(err);
+}
 
 /*********************************************************************
     IE Name: GPRS Timer 3
@@ -892,7 +1103,37 @@ LIBLTE_ERROR_ENUM liblte_mme_unpack_esm_message_container_ie(uint8              
     Document Reference: 24.301 v10.2.0 Section 9.9.3.17
                         24.008 v10.2.0 Section 10.5.5.9
 *********************************************************************/
-// FIXME
+LIBLTE_ERROR_ENUM liblte_mme_pack_identity_type_2_ie(uint8   id_type,
+                                                     uint8   bit_offset,
+                                                     uint8 **ie_ptr)
+{
+    LIBLTE_ERROR_ENUM err = LIBLTE_ERROR_INVALID_INPUTS;
+
+    if(ie_ptr != NULL)
+    {
+        **ie_ptr |= id_type << bit_offset;
+
+        err = LIBLTE_SUCCESS;
+    }
+
+    return(err);
+}
+LIBLTE_ERROR_ENUM liblte_mme_unpack_identity_type_2_ie(uint8 **ie_ptr,
+                                                       uint8   bit_offset,
+                                                       uint8  *id_type)
+{
+    LIBLTE_ERROR_ENUM err = LIBLTE_ERROR_INVALID_INPUTS;
+
+    if(ie_ptr  != NULL &&
+       id_type != NULL)
+    {
+        *id_type = (**ie_ptr >> bit_offset) & 0x07;
+
+        err = LIBLTE_SUCCESS;
+    }
+
+    return(err);
+}
 
 /*********************************************************************
     IE Name: IMEISV Request
@@ -1209,7 +1450,7 @@ LIBLTE_ERROR_ENUM liblte_mme_pack_tracking_area_id_ie(LIBLTE_MME_TRACKING_AREA_I
     {
         **ie_ptr  = ((tai->mcc/10) % 10) | ((tai->mcc/100) % 10);
         *ie_ptr  += 1;
-        if(tai->mnc > 100)
+        if(tai->mnc < 100)
         {
             **ie_ptr  = 0xF | (tai->mcc % 10);
             *ie_ptr  += 1;
@@ -1985,21 +2226,37 @@ LIBLTE_ERROR_ENUM liblte_mme_parse_msg_header(LIBLTE_BYTE_MSG_STRUCT *msg,
                                               uint8                  *msg_type)
 {
     LIBLTE_ERROR_ENUM err = LIBLTE_ERROR_INVALID_INPUTS;
+    uint8             sec_hdr_type;
 
     if(msg      != NULL &&
        pd       != NULL &&
        msg_type != NULL)
     {
+        // Security Header Type
+        sec_hdr_type = (msg->msg[0] & 0xF0) >> 4;
+
         // Protocol Discriminator
         *pd = msg->msg[0] & 0x0F;
 
-        if(LIBLTE_MME_PD_EPS_SESSION_MANAGEMENT == *pd)
+        if(LIBLTE_MME_SECURITY_HDR_TYPE_PLAIN_NAS == sec_hdr_type)
         {
-            // Message Type
-            *msg_type = msg->msg[2];
+            if(LIBLTE_MME_PD_EPS_SESSION_MANAGEMENT == *pd)
+            {
+                // Message Type
+                *msg_type = msg->msg[2];
+            }else{
+                // Message Type
+                *msg_type = msg->msg[1];
+            }
         }else{
-            // Message Type
-            *msg_type = msg->msg[1];
+            if(LIBLTE_MME_PD_EPS_SESSION_MANAGEMENT == *pd)
+            {
+                // Message type
+                *msg_type = msg->msg[8];
+            }else{
+                // Message type
+                *msg_type = msg->msg[7];
+            }
         }
 
         err = LIBLTE_SUCCESS;
@@ -2036,7 +2293,100 @@ LIBLTE_ERROR_ENUM liblte_mme_parse_msg_header(LIBLTE_BYTE_MSG_STRUCT *msg,
 
     Document Reference: 24.301 v10.2.0 Section 8.2.3
 *********************************************************************/
-// FIXME
+LIBLTE_ERROR_ENUM liblte_mme_pack_attach_reject_msg(LIBLTE_MME_ATTACH_REJECT_MSG_STRUCT *attach_rej,
+                                                    LIBLTE_BYTE_MSG_STRUCT              *msg)
+{
+    LIBLTE_ERROR_ENUM  err     = LIBLTE_ERROR_INVALID_INPUTS;
+    uint8             *msg_ptr = msg->msg;
+
+    if(attach_rej != NULL &&
+       msg        != NULL)
+    {
+        // Protocol Discriminator and Security Header Type
+        *msg_ptr = (LIBLTE_MME_SECURITY_HDR_TYPE_PLAIN_NAS << 4) | (LIBLTE_MME_PD_EPS_MOBILITY_MANAGEMENT);
+        msg_ptr++;
+
+        // Message Type
+        *msg_ptr = LIBLTE_MME_MSG_TYPE_ATTACH_REJECT;
+        msg_ptr++;
+
+        // EMM Cause
+        liblte_mme_pack_emm_cause_ie(attach_rej->emm_cause, &msg_ptr);
+
+        // ESM Message Container
+        if(attach_rej->esm_msg_present)
+        {
+            *msg_ptr = LIBLTE_MME_ESM_MSG_CONTAINER_IEI;
+            msg_ptr++;
+            liblte_mme_pack_esm_message_container_ie(&attach_rej->esm_msg, &msg_ptr);
+        }
+
+        // T3446 Value
+        if(attach_rej->t3446_value_present)
+        {
+            *msg_ptr = LIBLTE_MME_T3446_VALUE_IEI;
+            msg_ptr++;
+            liblte_mme_pack_gprs_timer_2_ie(attach_rej->t3446_value, &msg_ptr);
+        }
+
+        // Fill in the number of bytes used
+        msg->N_bytes = msg_ptr - msg->msg;
+
+        err = LIBLTE_SUCCESS;
+    }
+
+    return(err);
+}
+LIBLTE_ERROR_ENUM liblte_mme_unpack_attach_reject_msg(LIBLTE_BYTE_MSG_STRUCT              *msg,
+                                                      LIBLTE_MME_ATTACH_REJECT_MSG_STRUCT *attach_rej)
+{
+    LIBLTE_ERROR_ENUM  err     = LIBLTE_ERROR_INVALID_INPUTS;
+    uint8             *msg_ptr = msg->msg;
+    uint8              sec_hdr_type;
+
+    if(msg        != NULL &&
+       attach_rej != NULL)
+    {
+        // Security Header Type
+        sec_hdr_type = (msg->msg[0] & 0xF0) >> 4;
+        if(LIBLTE_MME_SECURITY_HDR_TYPE_PLAIN_NAS == sec_hdr_type)
+        {
+            msg_ptr++;
+        }else{
+            msg_ptr += 7;
+        }
+
+        // Skip Message Type
+        msg_ptr++;
+
+        // EMM Cause
+        liblte_mme_unpack_emm_cause_ie(&msg_ptr, &attach_rej->emm_cause);
+
+        // ESM Message Container
+        if(LIBLTE_MME_ESM_MSG_CONTAINER_IEI == *msg_ptr)
+        {
+            msg_ptr++;
+            liblte_mme_unpack_esm_message_container_ie(&msg_ptr, &attach_rej->esm_msg);
+            attach_rej->esm_msg_present = true;
+        }else{
+            attach_rej->esm_msg_present = false;
+        }
+
+        // T3446 Value
+        if(LIBLTE_MME_T3446_VALUE_IEI == *msg_ptr)
+        {
+            msg_ptr++;
+            liblte_mme_unpack_gprs_timer_2_ie(&msg_ptr, &attach_rej->t3446_value);
+            attach_rej->t3446_value_present = true;
+        }else{
+            attach_rej->t3446_value_present = false;
+        }
+
+        err = LIBLTE_SUCCESS;
+    }
+
+    return(err);
+}
 
 /*********************************************************************
     Message Name: Attach Request
@@ -2190,6 +2540,9 @@ LIBLTE_ERROR_ENUM liblte_mme_pack_attach_request_msg(LIBLTE_MME_ATTACH_REQUEST_M
             msg_ptr++;
         }
 
+        // Fill in the number of bytes used
+        msg->N_bytes = msg_ptr - msg->msg;
+
         err = LIBLTE_SUCCESS;
     }
 
@@ -2200,12 +2553,19 @@ LIBLTE_ERROR_ENUM liblte_mme_unpack_attach_request_msg(LIBLTE_BYTE_MSG_STRUCT   
 {
     LIBLTE_ERROR_ENUM  err     = LIBLTE_ERROR_INVALID_INPUTS;
     uint8             *msg_ptr = msg->msg;
+    uint8              sec_hdr_type;
 
     if(msg        != NULL &&
        attach_req != NULL)
     {
-        // Skip Protocol Discriminator and Security Header Type
-        msg_ptr++;
+        // Security Header Type
+        sec_hdr_type = (msg->msg[0] & 0xF0) >> 4;
+        if(LIBLTE_MME_SECURITY_HDR_TYPE_PLAIN_NAS == sec_hdr_type)
+        {
+            msg_ptr++;
+        }else{
+            msg_ptr += 7;
+        }
 
         // Skip Message Type
         msg_ptr++;
@@ -2399,7 +2759,79 @@ LIBLTE_ERROR_ENUM liblte_mme_unpack_attach_request_msg(LIBLTE_BYTE_MSG_STRUCT   
 
     Document Reference: 24.301 v10.2.0 Section 8.2.7
 *********************************************************************/
-// FIXME
+LIBLTE_ERROR_ENUM liblte_mme_pack_authentication_request_msg(LIBLTE_MME_AUTHENTICATION_REQUEST_MSG_STRUCT *auth_req,
+                                                             LIBLTE_BYTE_MSG_STRUCT                       *msg)
+{
+    LIBLTE_ERROR_ENUM  err     = LIBLTE_ERROR_INVALID_INPUTS;
+    uint8             *msg_ptr = msg->msg;
+
+    if(auth_req != NULL &&
+       msg      != NULL)
+    {
+        // Protocol Discriminator and Security Header Type
+        *msg_ptr = (LIBLTE_MME_SECURITY_HDR_TYPE_PLAIN_NAS << 4) | (LIBLTE_MME_PD_EPS_MOBILITY_MANAGEMENT);
+        msg_ptr++;
+
+        // Message Type
+        *msg_ptr = LIBLTE_MME_MSG_TYPE_AUTHENTICATION_REQUEST;
+        msg_ptr++;
+
+        // NAS Key Set Identifier & Spare Half Octet
+        *msg_ptr = 0;
+        liblte_mme_pack_nas_key_set_id_ie(&auth_req->nas_ksi, 0, &msg_ptr);
+        msg_ptr++;
+
+        // Authentication Parameter RAND
+        liblte_mme_pack_authentication_parameter_rand_ie(auth_req->rand, &msg_ptr);
+
+        // Authentication Parameter AUTN
+        liblte_mme_pack_authentication_parameter_autn_ie(auth_req->autn, &msg_ptr);
+
+        // Fill in the number of bytes used
+        msg->N_bytes = msg_ptr - msg->msg;
+
+        err = LIBLTE_SUCCESS;
+    }
+
+    return(err);
+}
+LIBLTE_ERROR_ENUM liblte_mme_unpack_authentication_request_msg(LIBLTE_BYTE_MSG_STRUCT                       *msg,
+                                                               LIBLTE_MME_AUTHENTICATION_REQUEST_MSG_STRUCT *auth_req)
+{
+    LIBLTE_ERROR_ENUM  err     = LIBLTE_ERROR_INVALID_INPUTS;
+    uint8             *msg_ptr = msg->msg;
+    uint8              sec_hdr_type;
+
+    if(msg      != NULL &&
+       auth_req != NULL)
+    {
+        // Security Header Type
+        sec_hdr_type = (msg->msg[0] & 0xF0) >> 4;
+        if(LIBLTE_MME_SECURITY_HDR_TYPE_PLAIN_NAS == sec_hdr_type)
+        {
+            msg_ptr++;
+        }else{
+            msg_ptr += 7;
+        }
+
+        // Skip Message Type
+        msg_ptr++;
+
+        // NAS Key Set Identifier & Spare Half Octet
+        liblte_mme_unpack_nas_key_set_id_ie(&msg_ptr, 0, &auth_req->nas_ksi);
+        msg_ptr++;
+
+        // Authentication Parameter RAND
+        liblte_mme_unpack_authentication_parameter_rand_ie(&msg_ptr, auth_req->rand);
+
+        // Authentication Parameter AUTN
+        liblte_mme_unpack_authentication_parameter_autn_ie(&msg_ptr, auth_req->autn);
+
+        err = LIBLTE_SUCCESS;
+    }
+
+    return(err);
+}
 
 /*********************************************************************
     Message Name: Authentication Response
@@ -2517,7 +2949,60 @@ LIBLTE_ERROR_ENUM liblte_mme_unpack_attach_request_msg(LIBLTE_BYTE_MSG_STRUCT   
 
     Document Reference: 24.301 v10.2.0 Section 8.2.18
 *********************************************************************/
-// FIXME
+LIBLTE_ERROR_ENUM liblte_mme_pack_identity_request_msg(LIBLTE_MME_ID_REQUEST_MSG_STRUCT *id_req,
+                                                       LIBLTE_BYTE_MSG_STRUCT           *msg)
+{
+    LIBLTE_ERROR_ENUM  err     = LIBLTE_ERROR_INVALID_INPUTS;
+    uint8             *msg_ptr = msg->msg;
+
+    if(id_req != NULL &&
+       msg    != NULL)
+    {
+        // Protocol Discriminator and Security Header Type
+        *msg_ptr = (LIBLTE_MME_SECURITY_HDR_TYPE_PLAIN_NAS << 4) | (LIBLTE_MME_PD_EPS_MOBILITY_MANAGEMENT);
+        msg_ptr++;
+
+        // Message Type
+        *msg_ptr = LIBLTE_MME_MSG_TYPE_IDENTITY_REQUEST;
+        msg_ptr++;
+
+        // ID Type & Spare Half Octet
+        *msg_ptr = 0;
+        liblte_mme_pack_identity_type_2_ie(id_req->id_type, 0, &msg_ptr);
+        msg_ptr++;
+
+        // Fill in the number of bytes used
+        msg->N_bytes = msg_ptr - msg->msg;
+
+        err = LIBLTE_SUCCESS;
+    }
+
+    return(err);
+}
+LIBLTE_ERROR_ENUM liblte_mme_unpack_identity_request_msg(LIBLTE_BYTE_MSG_STRUCT           *msg,
+                                                         LIBLTE_MME_ID_REQUEST_MSG_STRUCT *id_req)
+{
+    LIBLTE_ERROR_ENUM  err     = LIBLTE_ERROR_INVALID_INPUTS;
+    uint8             *msg_ptr = msg->msg;
+
+    if(msg    != NULL &&
+       id_req != NULL)
+    {
+        // Skip Protocol Discriminator and Security Header Type
+        msg_ptr++;
+
+        // Skip Message Type
+        msg_ptr++;
+
+        // ID Type & Spare Half Offset
+        liblte_mme_unpack_identity_type_2_ie(&msg_ptr, 0, &id_req->id_type);
+        msg_ptr++;
+
+        err = LIBLTE_SUCCESS;
+    }
+
+    return(err);
+}
 
 /*********************************************************************
     Message Name: Identity Response
@@ -2528,7 +3013,74 @@ LIBLTE_ERROR_ENUM liblte_mme_unpack_attach_request_msg(LIBLTE_BYTE_MSG_STRUCT   
 
     Document Reference: 24.301 v10.2.0 Section 8.2.19
 *********************************************************************/
-// FIXME
+LIBLTE_ERROR_ENUM liblte_mme_pack_identity_response_msg(LIBLTE_MME_ID_RESPONSE_MSG_STRUCT *id_resp,
+                                                        LIBLTE_BYTE_MSG_STRUCT            *msg)
+{
+    LIBLTE_ERROR_ENUM  err     = LIBLTE_ERROR_INVALID_INPUTS;
+    uint8             *msg_ptr = msg->msg;
+
+    if(id_resp != NULL &&
+       msg     != NULL)
+    {
+        // Protocol Discriminator and Security Header Type
+        *msg_ptr = (LIBLTE_MME_SECURITY_HDR_TYPE_PLAIN_NAS << 4) | (LIBLTE_MME_PD_EPS_MOBILITY_MANAGEMENT);
+        msg_ptr++;
+
+        // Message Type
+        *msg_ptr = LIBLTE_MME_MSG_TYPE_IDENTITY_RESPONSE;
+        msg_ptr++;
+
+        // Mobile Identity
+        liblte_mme_pack_mobile_id_ie(&id_resp->mobile_id, &msg_ptr);
+
+        // Fill in the number of bytes used
+        msg->N_bytes = msg_ptr - msg->msg;
+
+        err = LIBLTE_SUCCESS;
+    }
+
+    return(err);
+}
+LIBLTE_ERROR_ENUM liblte_mme_unpack_identity_response_msg(LIBLTE_BYTE_MSG_STRUCT            *msg,
+                                                          LIBLTE_MME_ID_RESPONSE_MSG_STRUCT *id_resp)
+{
+    LIBLTE_ERROR_ENUM  err     = LIBLTE_ERROR_INVALID_INPUTS;
+    uint8             *msg_ptr = msg->msg;
+    uint8              sec_hdr_type;
+
+    if(msg     != NULL &&
+       id_resp != NULL)
+    {
+        // Security Header Type
+        sec_hdr_type = (msg->msg[0] & 0xF0) >> 4;
+        msg_ptr++;
+
+        if(LIBLTE_MME_SECURITY_HDR_TYPE_PLAIN_NAS == sec_hdr_type)
+        {
+            // Skip Message Type
+            msg_ptr++;
+        }else{
+            // Skip Message Authentication Code
+            msg_ptr += 4;
+
+            // Skip Sequence Number
+            msg_ptr++;
+
+            // Skip Protocol Discriminator and Security Header Type
+            msg_ptr++;
+
+            // Skip Message Type
+            msg_ptr++;
+        }
+
+        // Mobile Identity
+        liblte_mme_unpack_mobile_id_ie(&msg_ptr, &id_resp->mobile_id);
+
+        err = LIBLTE_SUCCESS;
+    }
+
+    return(err);
+}
 
 /*********************************************************************
     Message Name: Security Mode Command
@@ -2942,6 +3494,9 @@ LIBLTE_ERROR_ENUM liblte_mme_pack_pdn_connectivity_request_msg(LIBLTE_MME_PDN_CO
             msg_ptr++;
         }
 
+        // Fill in the number of bytes used
+        msg->N_bytes = msg_ptr - msg->msg;
+
         err = LIBLTE_SUCCESS;
     }
 
@@ -3037,7 +3592,3 @@ LIBLTE_ERROR_ENUM liblte_mme_unpack_pdn_connectivity_request_msg(LIBLTE_BYTE_MSG
     Document Reference: 24.301 v10.2.0 Section 8.3.22
 *********************************************************************/
 // FIXME
-
-/*******************************************************************************
-                              LOCAL FUNCTIONS
-*******************************************************************************/

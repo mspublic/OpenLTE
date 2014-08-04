@@ -116,3 +116,10 @@ v00.14.01     Pulled in patches from Mike Peters to fix an uninitialized N_bits
               unlock bug, Jeff Long to optimally set the master clock rate for
               USRP B2X0 in the LTE_fdd_dl_scan application, and added clock source
               as a configurable parameter in the LTE_fdd_enodeb application.
+v00.15.00     Added make requirement for polarSSL, common, pdcp, and security
+              portions of liblte, more decoding/encoding to liblte_mme and
+              liblte_rrc, NACK support to liblte_rlc, and many changes to
+              LTE_fdd_enodeb (limit PCAP output, authentication vector support,
+              HSS interface support, message parsers/senders and state machines
+              for MME, RRC command messages, transmit functionality for PDCP,
+              RLC, and RRC, and refactoring of user identities).

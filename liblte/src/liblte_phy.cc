@@ -97,6 +97,8 @@
                                    transmission of more than one CCE in PDCCH.
     07/22/2014    Ben Wojtowicz    Pulled in a patch from Mike Peters to fix
                                    an uninitialized N_bits value.
+    08/03/2014    Ben Wojtowicz    Using the common value_2_bits and
+                                   bits_2_value functions.
 
 *******************************************************************************/
 
@@ -2173,35 +2175,6 @@ uint32 get_num_bits_in_prb(uint32                          N_subframe,
                            uint32                          N_rb_dl,
                            uint8                           N_ant,
                            LIBLTE_PHY_MODULATION_TYPE_ENUM mod_type);
-
-/*********************************************************************
-    Name: phy_value_2_bits
-
-    Description: Converts a value to a bit string
-
-    Document Reference: N/A
-*********************************************************************/
-// Defines
-// Enums
-// Structs
-// Functions
-void phy_value_2_bits(uint32   value,
-                      uint8  **bits,
-                      uint32   N_bits);
-
-/*********************************************************************
-    Name: phy_bits_2_value
-
-    Description: Converts a bit string to a value
-
-    Document Reference: N/A
-*********************************************************************/
-// Defines
-// Enums
-// Structs
-// Functions
-uint32 phy_bits_2_value(uint8  **bits,
-                        uint32   N_bits);
 
 /*********************************************************************
     Name: wrap_phase
@@ -12475,14 +12448,14 @@ void dci_0_pack(LIBLTE_PHY_ALLOCATION_STRUCT    *alloc,
     if(LIBLTE_PHY_DCI_CA_PRESENT == ca_presence)
     {
         printf("WARNING: Not handling carrier indicator\n");
-        phy_value_2_bits(0, &dci, 3);
+        value_2_bits(0, &dci, 3);
     }
 
     // Format 0/1A flag is set to format 0
-    phy_value_2_bits(DCI_0_1A_FLAG_0, &dci, 1);
+    value_2_bits(DCI_0_1A_FLAG_0, &dci, 1);
 
     // Frequency hopping flag
-    phy_value_2_bits(0, &dci, 1);
+    value_2_bits(0, &dci, 1);
 
     // RBA
     // FIXME: Only supporting non-hopping single-cluster
@@ -12493,25 +12466,25 @@ void dci_0_pack(LIBLTE_PHY_ALLOCATION_STRUCT    *alloc,
     }else{
         RIV = N_rb_ul*(N_rb_ul - alloc->N_prb + 1) + (N_rb_ul - 1 - alloc->prb[0][0]);
     }
-    phy_value_2_bits(RIV, &dci, RIV_length);
+    value_2_bits(RIV, &dci, RIV_length);
 
     // Modulation and coding scheme and redundancy version
-    phy_value_2_bits(alloc->mcs, &dci, 5);
+    value_2_bits(alloc->mcs, &dci, 5);
 
     // New data indicator
-    phy_value_2_bits(alloc->ndi, &dci, 1);
+    value_2_bits(alloc->ndi, &dci, 1);
 
     // TPC command
-    phy_value_2_bits(alloc->tpc, &dci, 2);
+    value_2_bits(alloc->tpc, &dci, 2);
 
     // Cyclic shift
-    phy_value_2_bits(0, &dci, 3);
+    value_2_bits(0, &dci, 3);
 
     // CSI request
-    phy_value_2_bits(0, &dci, 1);
+    value_2_bits(0, &dci, 1);
 
     // Pad bit
-    phy_value_2_bits(0, &dci, 1);
+    value_2_bits(0, &dci, 1);
 
     // Pad if needed
     size = dci - out_bits;
@@ -12527,7 +12500,7 @@ void dci_0_pack(LIBLTE_PHY_ALLOCATION_STRUCT    *alloc,
        size == 56)
     {
         size++;
-        phy_value_2_bits(0, &dci, 1);
+        value_2_bits(0, &dci, 1);
     }
     *N_out_bits = size;
 }
@@ -12575,11 +12548,11 @@ void dci_1a_pack(LIBLTE_PHY_ALLOCATION_STRUCT    *alloc,
     if(LIBLTE_PHY_DCI_CA_PRESENT == ca_presence)
     {
         printf("WARNING: Not handling carrier indicator\n");
-        phy_value_2_bits(0, &dci, 3);
+        value_2_bits(0, &dci, 3);
     }
 
     // Format 0/1A flag is set to format 1A
-    phy_value_2_bits(DCI_0_1A_FLAG_1A, &dci, 1);
+    value_2_bits(DCI_0_1A_FLAG_1A, &dci, 1);
 
     if(LIBLTE_MAC_SI_RNTI        == alloc->rnti ||
        LIBLTE_MAC_P_RNTI         == alloc->rnti ||
@@ -12587,7 +12560,7 @@ void dci_1a_pack(LIBLTE_PHY_ALLOCATION_STRUCT    *alloc,
         LIBLTE_MAC_RA_RNTI_END   >= alloc->rnti))
     {
         // FIXME: Only supporting localized VRBs
-        phy_value_2_bits(DCI_VRB_TYPE_LOCALIZED, &dci, 1);
+        value_2_bits(DCI_VRB_TYPE_LOCALIZED, &dci, 1);
         RIV_length = (uint32)ceilf(logf(N_rb_dl*(N_rb_dl+1)/2)/logf(2));
         if((alloc->N_prb-1) <= (N_rb_dl/2))
         {
@@ -12595,29 +12568,29 @@ void dci_1a_pack(LIBLTE_PHY_ALLOCATION_STRUCT    *alloc,
         }else{
             RIV = N_rb_dl*(N_rb_dl-alloc->N_prb+1) + (N_rb_dl - 1 - alloc->prb[0][0]);
         }
-        phy_value_2_bits(RIV, &dci, RIV_length);
+        value_2_bits(RIV, &dci, RIV_length);
 
         // Modulation and coding scheme
-        phy_value_2_bits(alloc->mcs, &dci, 5);
+        value_2_bits(alloc->mcs, &dci, 5);
 
         // HARQ process number, FIXME: FDD only
-        phy_value_2_bits(0, &dci, 3);
+        value_2_bits(0, &dci, 3);
 
         // New data indicator
-        phy_value_2_bits(0, &dci, 1);
+        value_2_bits(0, &dci, 1);
 
         // Redundancy version
-        phy_value_2_bits(alloc->rv_idx, &dci, 2);
+        value_2_bits(alloc->rv_idx, &dci, 2);
 
         // TPC
         N_prb_1a = 3;
-        phy_value_2_bits(1, &dci, 2);
+        value_2_bits(1, &dci, 2);
 
         // Calculate the TBS
         alloc->tbs = TBS_71721[alloc->mcs][N_prb_1a-1];
     }else{
         // FIXME: Only supporting localized VRBs
-        phy_value_2_bits(DCI_VRB_TYPE_LOCALIZED, &dci, 1);
+        value_2_bits(DCI_VRB_TYPE_LOCALIZED, &dci, 1);
         RIV_length = (uint32)ceilf(logf(N_rb_dl*(N_rb_dl+1)/2)/logf(2));
         if((alloc->N_prb-1) <= (N_rb_dl/2))
         {
@@ -12625,22 +12598,22 @@ void dci_1a_pack(LIBLTE_PHY_ALLOCATION_STRUCT    *alloc,
         }else{
             RIV = N_rb_dl*(N_rb_dl - alloc->N_prb + 1) + (N_rb_dl - 1 - alloc->prb[0][0]);
         }
-        phy_value_2_bits(RIV, &dci, RIV_length);
+        value_2_bits(RIV, &dci, RIV_length);
 
         // Modulation and coding scheme
-        phy_value_2_bits(alloc->mcs, &dci, 5);
+        value_2_bits(alloc->mcs, &dci, 5);
 
         // HARQ process number, FIXME: FDD only
-        phy_value_2_bits(0, &dci, 3);
+        value_2_bits(0, &dci, 3);
 
         // New data indicator
-        phy_value_2_bits(alloc->ndi, &dci, 1);
+        value_2_bits(alloc->ndi, &dci, 1);
 
         // Redundancy version
-        phy_value_2_bits(alloc->rv_idx, &dci, 2);
+        value_2_bits(alloc->rv_idx, &dci, 2);
 
         // TPC
-        phy_value_2_bits(alloc->tpc, &dci, 2);
+        value_2_bits(alloc->tpc, &dci, 2);
 
         // Calculate the TBS
         alloc->tbs = TBS_71721[alloc->mcs][alloc->N_prb-1];
@@ -12660,7 +12633,7 @@ void dci_1a_pack(LIBLTE_PHY_ALLOCATION_STRUCT    *alloc,
        size == 56)
     {
         size++;
-        phy_value_2_bits(0, &dci, 1);
+        value_2_bits(0, &dci, 1);
     }
     *N_out_bits = size;
 }
@@ -12703,12 +12676,12 @@ void dci_1a_unpack(uint8                           *in_bits,
     // Carrier indicator
     if(LIBLTE_PHY_DCI_CA_PRESENT == ca_presence)
     {
-        ca_ind = phy_bits_2_value(&dci, 3);
+        ca_ind = bits_2_value(&dci, 3);
         printf("WARNING: Not handling carrier indicator\n");
     }
 
     // Check DCI 0/1A flag 3GPP TS 36.212 v10.1.0 section 5.3.3.1.3
-    dci_0_1a_flag = phy_bits_2_value(&dci, 1);
+    dci_0_1a_flag = bits_2_value(&dci, 1);
     if(DCI_0_1A_FLAG_0 == dci_0_1a_flag)
     {
         printf("ERROR: DCI 1A flagged as DCI 0\n");
@@ -12721,20 +12694,20 @@ void dci_1a_unpack(uint8                           *in_bits,
         LIBLTE_MAC_RA_RNTI_END   >= rnti))
     {
         // Determine if RIV uses local or distributed VRBs
-        loc_or_dist = phy_bits_2_value(&dci, 1);
+        loc_or_dist = bits_2_value(&dci, 1);
 
         // Find the RIV that was sent 3GPP TS 36.213 v10.3.0 section 7.1.6.3
         RIV_length   = (uint32)ceilf(logf(N_rb_dl*(N_rb_dl+1)/2)/logf(2));
-        RIV          = phy_bits_2_value(&dci, RIV_length);
+        RIV          = bits_2_value(&dci, RIV_length);
         alloc->N_prb = RIV/N_rb_dl + 1;
         RB_start     = RIV % N_rb_dl;
 
         // Extract the rest of the fields
-        alloc->mcs    = phy_bits_2_value(&dci, 5);
-        harq_process  = phy_bits_2_value(&dci, 3);
-        new_data_ind  = phy_bits_2_value(&dci, 1);
-        alloc->rv_idx = phy_bits_2_value(&dci, 2);
-        tpc           = phy_bits_2_value(&dci, 2);
+        alloc->mcs    = bits_2_value(&dci, 5);
+        harq_process  = bits_2_value(&dci, 3);
+        new_data_ind  = bits_2_value(&dci, 1);
+        alloc->rv_idx = bits_2_value(&dci, 2);
+        tpc           = bits_2_value(&dci, 2);
 
         // Parse the data
         if((tpc % 2) == 0)
@@ -12837,7 +12810,7 @@ void dci_1c_unpack(uint8                        *in_bits,
     {
         gap_ind = 0;
     }else{
-        gap_ind = phy_bits_2_value(&dci, 1);
+        gap_ind = bits_2_value(&dci, 1);
     }
 
     if(N_rb_dl <= 10)
@@ -12892,7 +12865,7 @@ void dci_1c_unpack(uint8                        *in_bits,
         LIBLTE_MAC_RA_RNTI_END   >= rnti))
     {
         RIV_length = ceilf(logf((N_vrb_gap1_dl/N_rb_step) * ((N_vrb_gap1_dl/N_rb_step)+1) / 2.0)/logf(2));
-        RIV        = phy_bits_2_value(&dci, RIV_length);
+        RIV        = bits_2_value(&dci, RIV_length);
 
         for(i=N_rb_step; i<=(N_vrb_dl/N_rb_step)*N_rb_step; i+=N_rb_step) // L_crb running variable N_rb_step to floor(N_vrb_dl/N_rb_step)*N_rb_step
         {
@@ -12919,7 +12892,7 @@ void dci_1c_unpack(uint8                        *in_bits,
             }
         }
         // Extract the rest of the fields
-        alloc->mcs = phy_bits_2_value(&dci, 5);
+        alloc->mcs = bits_2_value(&dci, 5);
 
         // Convert allocation into array of PRBs
         // Calculate Resource Block Group size (P)
@@ -13400,48 +13373,6 @@ uint32 get_num_bits_in_prb(uint32                          N_subframe,
     }
 
     return(N_bits);
-}
-
-/*********************************************************************
-    Name: phy_value_2_bits
-
-    Description: Converts a value to a bit string
-
-    Document Reference: N/A
-*********************************************************************/
-void phy_value_2_bits(uint32   value,
-                      uint8  **bits,
-                      uint32   N_bits)
-{
-    uint32 i;
-
-    for(i=0; i<N_bits; i++)
-    {
-        (*bits)[i] = (value >> (N_bits-i-1)) & 0x1;
-    }
-    *bits += N_bits;
-}
-
-/*********************************************************************
-    Name: phy_bits_2_value
-
-    Description: Converts a bit string to a value
-
-    Document Reference: N/A
-*********************************************************************/
-uint32 phy_bits_2_value(uint8  **bits,
-                        uint32   N_bits)
-{
-    uint32 value = 0;
-    uint32 i;
-
-    for(i=0; i<N_bits; i++)
-    {
-        value |= (*bits)[i] << (N_bits-i-1);
-    }
-    *bits += N_bits;
-
-    return(value);
 }
 
 /*********************************************************************

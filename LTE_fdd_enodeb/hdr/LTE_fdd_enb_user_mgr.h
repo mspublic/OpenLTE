@@ -26,6 +26,7 @@
     ----------    -------------    --------------------------------------------
     11/09/2013    Ben Wojtowicz    Created file
     05/04/2014    Ben Wojtowicz    Added C-RNTI timeout timers.
+    08/03/2014    Ben Wojtowicz    Refactored add_user.
 
 *******************************************************************************/
 
@@ -71,7 +72,6 @@ public:
     LTE_FDD_ENB_ERROR_ENUM get_free_c_rnti(uint16 *c_rnti);
     void assign_c_rnti(uint16 c_rnti, LTE_fdd_enb_user *user);
     LTE_FDD_ENB_ERROR_ENUM free_c_rnti(uint16 c_rnti);
-    LTE_FDD_ENB_ERROR_ENUM add_user(std::string imsi);
     LTE_FDD_ENB_ERROR_ENUM add_user(uint16 c_rnti);
     LTE_FDD_ENB_ERROR_ENUM find_user(std::string imsi, LTE_fdd_enb_user **user);
     LTE_FDD_ENB_ERROR_ENUM find_user(uint16 c_rnti, LTE_fdd_enb_user **user);
@@ -88,13 +88,13 @@ private:
     void handle_c_rnti_timer_expiry(uint32 timer_id);
 
     // User storage
-    std::map<std::string, LTE_fdd_enb_user*> user_map;
-    std::map<uint16, LTE_fdd_enb_user*>      c_rnti_map;
-    std::map<uint32, uint16>                 timer_id_map;
-    boost::mutex                             user_mutex;
-    boost::mutex                             c_rnti_mutex;
-    boost::mutex                             timer_id_mutex;
-    uint16                                   next_c_rnti;
+    std::map<uint64, LTE_fdd_enb_user*> user_map;
+    std::map<uint16, LTE_fdd_enb_user*> c_rnti_map;
+    std::map<uint32, uint16>            timer_id_map;
+    boost::mutex                        user_mutex;
+    boost::mutex                        c_rnti_mutex;
+    boost::mutex                        timer_id_mutex;
+    uint16                              next_c_rnti;
 };
 
 #endif /* __LTE_FDD_ENB_USER_MGR_H__ */

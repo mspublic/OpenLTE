@@ -34,6 +34,7 @@
                                    messages, and using the latest LTE library.
     07/22/2014    Ben Wojtowicz    Added clock source as a configurable
                                    parameter.
+    08/03/2014    Ben Wojtowicz    Added HSS support.
 
 *******************************************************************************/
 
@@ -87,6 +88,7 @@ typedef enum{
     LTE_FDD_ENB_ERROR_RB_ALREADY_SETUP,
     LTE_FDD_ENB_ERROR_TIMER_NOT_FOUND,
     LTE_FDD_ENB_ERROR_CANT_REASSEMBLE_SDU,
+    LTE_FDD_ENB_ERROR_DUPLICATE_ENTRY,
     LTE_FDD_ENB_ERROR_N_ITEMS,
 }LTE_FDD_ENB_ERROR_ENUM;
 static const char LTE_fdd_enb_error_text[LTE_FDD_ENB_ERROR_N_ITEMS][100] = {"none",
@@ -109,7 +111,8 @@ static const char LTE_fdd_enb_error_text[LTE_FDD_ENB_ERROR_N_ITEMS][100] = {"non
                                                                             "RB not setup",
                                                                             "RB already setup",
                                                                             "timer not found",
-                                                                            "cant reassemble SDU"};
+                                                                            "cant reassemble SDU",
+                                                                            "duplicate entry"};
 
 typedef enum{
     LTE_FDD_ENB_DEBUG_TYPE_ERROR = 0,
@@ -324,6 +327,9 @@ private:
     void handle_start(void);
     void handle_stop(void);
     void handle_help(void);
+    void handle_add_user(std::string msg);
+    void handle_del_user(std::string msg);
+    void handle_print_users(void);
 
     // Variables
     std::map<std::string, LTE_FDD_ENB_VAR_STRUCT> var_map;
@@ -338,6 +344,7 @@ private:
     LTE_FDD_ENB_ERROR_ENUM write_value(LTE_FDD_ENB_VAR_STRUCT *var, int64 value);
     LTE_FDD_ENB_ERROR_ENUM write_value(LTE_FDD_ENB_VAR_STRUCT *var, std::string value);
     LTE_FDD_ENB_ERROR_ENUM write_value(LTE_FDD_ENB_VAR_STRUCT *var, uint32 value);
+    bool is_string_valid_as_number(std::string str, uint32 length, uint8 max_value);
 };
 
 #endif /* __LTE_FDD_ENB_INTERFACE_H__ */
