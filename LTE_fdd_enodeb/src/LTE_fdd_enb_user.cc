@@ -29,6 +29,8 @@
     05/04/2014    Ben Wojtowicz    Added radio bearer support.
     06/15/2014    Ben Wojtowicz    Added initialize routine.
     08/03/2014    Ben Wojtowicz    Refactored user identities.
+    09/03/2014    Ben Wojtowicz    Added ciphering and integrity algorithm
+                                   storing.
 
 *******************************************************************************/
 
@@ -66,10 +68,24 @@ LTE_fdd_enb_user::LTE_fdd_enb_user(uint16 _c_rnti)
     uint32 i;
 
     // Identity
-    id_set     = false;
-    temp_id    = 0;
-    c_rnti     = _c_rnti;
-    c_rnti_set = true;
+    id_set       = false;
+    temp_id      = 0;
+    c_rnti       = _c_rnti;
+    c_rnti_set   = true;
+    auth_vec_set = false;
+
+    // Capabilities
+    for(i=0; i<8; i++)
+    {
+        eea_support[i] = false;
+        eia_support[i] = false;
+        uea_support[i] = false;
+        uia_support[i] = false;
+        gea_support[i] = false;
+    }
+    uea_set = false;
+    uia_set = false;
+    gea_set = false;
 
     // Radio Bearers
     srb0 = new LTE_fdd_enb_rb(LTE_FDD_ENB_RB_SRB0, this);
@@ -79,6 +95,10 @@ LTE_fdd_enb_user::LTE_fdd_enb_user(uint16 _c_rnti)
     {
         drb[i] = NULL;
     }
+
+    // MAC
+    dl_ndi = false;
+    ul_ndi = false;
 
     // Generic
     delete_at_idle = false;
@@ -115,6 +135,10 @@ void LTE_fdd_enb_user::init(void)
     srb0->set_mme_state(LTE_FDD_ENB_MME_STATE_IDLE);
     srb0->set_rrc_procedure(LTE_FDD_ENB_RRC_PROC_IDLE);
     srb0->set_rrc_state(LTE_FDD_ENB_RRC_STATE_IDLE);
+
+    // MAC
+    dl_ndi = false;
+    ul_ndi = false;
 }
 
 /******************/
@@ -169,6 +193,97 @@ uint16 LTE_fdd_enb_user::get_c_rnti(void)
 bool LTE_fdd_enb_user::is_c_rnti_set(void)
 {
     return(c_rnti_set);
+}
+void LTE_fdd_enb_user::set_auth_vec(LTE_FDD_ENB_AUTHENTICATION_VECTOR_STRUCT *av)
+{
+    memcpy(&auth_vec, av, sizeof(LTE_FDD_ENB_AUTHENTICATION_VECTOR_STRUCT));
+    auth_vec_set = true;
+}
+LTE_FDD_ENB_AUTHENTICATION_VECTOR_STRUCT* LTE_fdd_enb_user::get_auth_vec(void)
+{
+    return(&auth_vec);
+}
+void LTE_fdd_enb_user::increment_nas_count_dl(void)
+{
+    if(auth_vec_set)
+    {
+        auth_vec.nas_count_dl++;
+    }
+}
+void LTE_fdd_enb_user::increment_nas_count_ul(void)
+{
+    if(auth_vec_set)
+    {
+        auth_vec.nas_count_ul++;
+    }
+}
+bool LTE_fdd_enb_user::is_auth_vec_set(void)
+{
+    return(auth_vec_set);
+}
+
+/**********************/
+/*    Capabilities    */
+/**********************/
+void LTE_fdd_enb_user::set_eea_support(uint8 eea,
+                                       bool  support)
+{
+    eea_support[eea] = support;
+}
+bool LTE_fdd_enb_user::get_eea_support(uint8 eea)
+{
+    return(eea_support[eea]);
+}
+void LTE_fdd_enb_user::set_eia_support(uint8 eia,
+                                       bool  support)
+{
+    eia_support[eia] = support;
+}
+bool LTE_fdd_enb_user::get_eia_support(uint8 eia)
+{
+    return(eia_support[eia]);
+}
+void LTE_fdd_enb_user::set_uea_support(uint8 uea,
+                                       bool  support)
+{
+    uea_support[uea] = support;
+    uea_set          = true;
+}
+bool LTE_fdd_enb_user::get_uea_support(uint8 uea)
+{
+    return(uea_support[uea]);
+}
+bool LTE_fdd_enb_user::is_uea_set(void)
+{
+    return(uea_set);
+}
+void LTE_fdd_enb_user::set_uia_support(uint8 uia,
+                                       bool  support)
+{
+    uia_support[uia] = support;
+    uia_set          = true;
+}
+bool LTE_fdd_enb_user::get_uia_support(uint8 uia)
+{
+    return(uia_support[uia]);
+}
+bool LTE_fdd_enb_user::is_uia_set(void)
+{
+    return(uia_set);
+}
+void LTE_fdd_enb_user::set_gea_support(uint8 gea,
+                                       bool  support)
+{
+    gea_support[gea] = support;
+    gea_set          = true;
+}
+bool LTE_fdd_enb_user::get_gea_support(uint8 gea)
+{
+    return(gea_support[gea]);
+}
+bool LTE_fdd_enb_user::is_gea_set(void)
+{
+    return(gea_set);
 }
 
 /***********************/
@@ -251,6 +366,26 @@ LTE_FDD_ENB_ERROR_ENUM LTE_fdd_enb_user::get_srb2(LTE_fdd_enb_rb **rb)
     *rb = srb2;
 
     return(err);
+}
+
+/*************/
+/*    MAC    */
+/*************/
+bool LTE_fdd_enb_user::get_dl_ndi(void)
+{
+    return(dl_ndi);
+}
+void LTE_fdd_enb_user::flip_dl_ndi(void)
+{
+    dl_ndi ^= 1;
+}
+bool LTE_fdd_enb_user::get_ul_ndi(void)
+{
+    return(ul_ndi);
+}
+void LTE_fdd_enb_user::flip_ul_ndi(void)
+{
+    ul_ndi ^= 1;
 }
 
 /*****************/

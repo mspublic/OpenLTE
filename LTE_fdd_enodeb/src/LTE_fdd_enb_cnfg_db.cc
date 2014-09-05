@@ -33,6 +33,8 @@
     05/04/2014    Ben Wojtowicz    Added PCAP support.
     06/15/2014    Ben Wojtowicz    Omitting path from __FILE__.
     08/03/2014    Ben Wojtowicz    Added support for limiting PCAP output.
+    09/03/2014    Ben Wojtowicz    Added better MCC/MNC support and UL EARFCN,
+                                   and DL and UL center frequencies.
 
 *******************************************************************************/
 
@@ -109,6 +111,8 @@ LTE_fdd_enb_cnfg_db::LTE_fdd_enb_cnfg_db()
     var_map_int64[LTE_FDD_ENB_PARAM_FREQ_BAND]                 = 0;
     var_map_int64[LTE_FDD_ENB_PARAM_DL_EARFCN]                 = liblte_interface_first_dl_earfcn[0];
     var_map_int64[LTE_FDD_ENB_PARAM_UL_EARFCN]                 = liblte_interface_get_corresponding_ul_earfcn(liblte_interface_first_dl_earfcn[0]);
+    var_map_int64[LTE_FDD_ENB_PARAM_DL_CENTER_FREQ]            = liblte_interface_dl_earfcn_to_frequency(liblte_interface_first_dl_earfcn[0]);
+    var_map_int64[LTE_FDD_ENB_PARAM_UL_CENTER_FREQ]            = liblte_interface_ul_earfcn_to_frequency(liblte_interface_get_corresponding_ul_earfcn(liblte_interface_first_dl_earfcn[0]));
     var_map_int64[LTE_FDD_ENB_PARAM_N_RB_DL]                   = LIBLTE_PHY_N_RB_DL_10MHZ;
     var_map_int64[LTE_FDD_ENB_PARAM_N_RB_UL]                   = LIBLTE_PHY_N_RB_UL_10MHZ;
     var_map_int64[LTE_FDD_ENB_PARAM_DL_BW]                     = LIBLTE_RRC_DL_BANDWIDTH_50;
@@ -168,6 +172,8 @@ LTE_FDD_ENB_ERROR_ENUM LTE_fdd_enb_cnfg_db::set_param(LTE_FDD_ENB_PARAM_ENUM par
             set_param(LTE_FDD_ENB_PARAM_N_ID_1, (value - (value % 3))/3);
         }else if(LTE_FDD_ENB_PARAM_DL_EARFCN == param){
             set_param(LTE_FDD_ENB_PARAM_UL_EARFCN, (int64)liblte_interface_get_corresponding_ul_earfcn(value));
+            set_param(LTE_FDD_ENB_PARAM_DL_CENTER_FREQ, (int64)liblte_interface_dl_earfcn_to_frequency(value));
+            set_param(LTE_FDD_ENB_PARAM_UL_CENTER_FREQ, (int64)liblte_interface_ul_earfcn_to_frequency(liblte_interface_get_corresponding_ul_earfcn(value)));
             radio->set_earfcns(value, (int64)liblte_interface_get_corresponding_ul_earfcn(value));
         }
     }
@@ -222,9 +228,10 @@ LTE_FDD_ENB_ERROR_ENUM LTE_fdd_enb_cnfg_db::set_param(LTE_FDD_ENB_PARAM_ENUM par
 LTE_FDD_ENB_ERROR_ENUM LTE_fdd_enb_cnfg_db::set_param(LTE_FDD_ENB_PARAM_ENUM param,
                                                       std::string            value)
 {
-    std::map<LTE_FDD_ENB_PARAM_ENUM, uint32>::iterator iter = var_map_uint32.find(param);
-    LTE_FDD_ENB_ERROR_ENUM                             err  = LTE_FDD_ENB_ERROR_INVALID_PARAM;
-    uint32                                             i;
+    std::map<LTE_FDD_ENB_PARAM_ENUM, uint32>::iterator  iter = var_map_uint32.find(param);
+    LTE_FDD_ENB_ERROR_ENUM                              err  = LTE_FDD_ENB_ERROR_INVALID_PARAM;
+    uint32                                              i;
+    const char                                         *v_str = value.c_str();
 
     if(var_map_uint32.end() != iter)
     {
@@ -232,7 +239,7 @@ LTE_FDD_ENB_ERROR_ENUM LTE_fdd_enb_cnfg_db::set_param(LTE_FDD_ENB_PARAM_ENUM par
         for(i=0; i<value.length(); i++)
         {
             (*iter).second <<= 4;
-            (*iter).second  |= (value[i] & 0x0F);
+            (*iter).second  |= (v_str[i] & 0x0F);
         }
         err = LTE_FDD_ENB_ERROR_NONE;
     }
@@ -450,11 +457,32 @@ void LTE_fdd_enb_cnfg_db::construct_sys_info(void)
     if(var_map_uint32.end() != uint32_iter)
     {
         sys_info.sib1.plmn_id[0].id.mcc = ((*uint32_iter).second) & 0xFFFF;
+        sys_info.mcc                    = 0;
+        for(i=0; i<3; i++)
+        {
+            sys_info.mcc *= 10;
+            sys_info.mcc |= (((*uint32_iter).second) >> (2-i)*4) & 0xF;
+        }
     }
     uint32_iter = var_map_uint32.find(LTE_FDD_ENB_PARAM_MNC);
     if(var_map_uint32.end() != uint32_iter)
     {
         sys_info.sib1.plmn_id[0].id.mnc = ((*uint32_iter).second) & 0xFFFF;
+        sys_info.mnc                    = 0;
+        if(((((*uint32_iter).second) >> 8) & 0xF) == 0xF)
+        {
+            for(i=0; i<2; i++)
+            {
+                sys_info.mnc *= 10;
+                sys_info.mnc |= (((*uint32_iter).second) >> (1-i)*4) & 0xF;
+            }
+        }else{
+            for(i=0; i<3; i++)
+            {
+                sys_info.mnc *= 10;
+                sys_info.mnc |= (((*uint32_iter).second) >> (2-i)*4) & 0xF;
+            }
+        }
     }
     sys_info.sib1.plmn_id[0].resv_for_oper         = LIBLTE_RRC_NOT_RESV_FOR_OPER;
     sys_info.sib1.cell_barred                      = LIBLTE_RRC_CELL_NOT_BARRED;

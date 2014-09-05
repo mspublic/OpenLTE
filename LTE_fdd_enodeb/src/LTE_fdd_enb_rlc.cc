@@ -30,6 +30,7 @@
     05/04/2014    Ben Wojtowicz    Added communication to MAC and PDCP.
     06/15/2014    Ben Wojtowicz    Added basic AM receive functionality.
     08/03/2014    Ben Wojtowicz    Added transmit functionality.
+    09/03/2014    Ben Wojtowicz    Added debug print and status request.
 
 *******************************************************************************/
 
@@ -580,6 +581,7 @@ void LTE_fdd_enb_rlc::handle_am_sdu(LIBLTE_BIT_MSG_STRUCT *sdu,
             if(bit_idx == sdu->N_bits)
             {
                 amd.hdr.fi = LIBLTE_RLC_FI_FIELD_LAST_SDU_SEGMENT;
+                amd.hdr.p  = LIBLTE_RLC_P_FIELD_STATUS_REPORT_REQUESTED;
             }
             rb->set_rlc_vts(vts+1);
             vts = rb->get_rlc_vts();
@@ -596,11 +598,21 @@ void LTE_fdd_enb_rlc::send_status_pdu(LIBLTE_RLC_STATUS_PDU_STRUCT *status_pdu,
                                       LTE_fdd_enb_user             *user,
                                       LTE_fdd_enb_rb               *rb)
 {
-    LIBLTE_BIT_MSG_STRUCT                mac_sdu;
-    LTE_FDD_ENB_MAC_SDU_READY_MSG_STRUCT mac_sdu_ready;
+    LTE_fdd_enb_interface                *interface = LTE_fdd_enb_interface::get_instance();
+    LIBLTE_BIT_MSG_STRUCT                 mac_sdu;
+    LTE_FDD_ENB_MAC_SDU_READY_MSG_STRUCT  mac_sdu_ready;
 
     // Pack the PDU
     liblte_rlc_pack_status_pdu(status_pdu, &mac_sdu);
+
+    interface->send_debug_msg(LTE_FDD_ENB_DEBUG_TYPE_INFO,
+                              LTE_FDD_ENB_DEBUG_LEVEL_RLC,
+                              __FILE__,
+                              __LINE__,
+                              &mac_sdu,
+                              "Sending STATUS PDU for RNTI=%u, RB=%s",
+                              user->get_c_rnti(),
+                              LTE_fdd_enb_rb_text[rb->get_rb_id()]);
 
     // Queue the PDU for MAC
     rb->queue_mac_sdu(&mac_sdu);

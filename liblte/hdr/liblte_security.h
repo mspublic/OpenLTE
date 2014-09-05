@@ -25,6 +25,7 @@
     Revision History
     ----------    -------------    --------------------------------------------
     08/03/2014    Ben Wojtowicz    Created file.
+    09/03/2014    Ben Wojtowicz    Added key generation and EIA2.
 
 *******************************************************************************/
 
@@ -69,6 +70,120 @@ LIBLTE_ERROR_ENUM liblte_security_generate_k_asme(uint8  *ck,
                                                   uint16  mcc,
                                                   uint16  mnc,
                                                   uint8  *k_asme);
+
+/*********************************************************************
+    Name: liblte_security_generate_k_enb
+
+    Description: Generate the security key Kenb.
+
+    Document Reference: 33.401 v10.0.0 Annex A.2
+*********************************************************************/
+// Defines
+// Enums
+// Structs
+// Functions
+LIBLTE_ERROR_ENUM liblte_security_generate_k_enb(uint8  *k_asme,
+                                                 uint32  nas_count,
+                                                 uint8  *k_enb);
+
+/*********************************************************************
+    Name: liblte_security_generate_k_nas
+
+    Description: Generate the NAS security keys KNASenc and KNASint.
+
+    Document Reference: 33.401 v10.0.0 Annex A.2
+*********************************************************************/
+// Defines
+// Enums
+typedef enum{
+    LIBLTE_SECURITY_CIPHERING_ALGORITHM_ID_EEA0 = 0,
+    LIBLTE_SECURITY_CIPHERING_ALGORITHM_ID_128_EEA1,
+    LIBLTE_SECURITY_CIPHERING_ALGORITHM_ID_128_EEA2,
+    LIBLTE_SECURITY_CIPHERING_ALGORITHM_ID_N_ITEMS,
+}LIBLTE_SECURITY_CIPHERING_ALGORITHM_ID_ENUM;
+static const char liblte_security_ciphering_algorithm_id_text[LIBLTE_SECURITY_CIPHERING_ALGORITHM_ID_N_ITEMS][20] = {"EEA0",
+                                                                                                                     "128-EEA1",
+                                                                                                                     "128-EEA2"};
+typedef enum{
+    LIBLTE_SECURITY_INTEGRITY_ALGORITHM_ID_EIA0 = 0,
+    LIBLTE_SECURITY_INTEGRITY_ALGORITHM_ID_128_EIA1,
+    LIBLTE_SECURITY_INTEGRITY_ALGORITHM_ID_128_EIA2,
+    LIBLTE_SECURITY_INTEGRITY_ALGORITHM_ID_N_ITEMS,
+}LIBLTE_SECURITY_INTEGRITY_ALGORITHM_ID_ENUM;
+static const char liblte_security_integrity_algorithm_id_text[LIBLTE_SECURITY_INTEGRITY_ALGORITHM_ID_N_ITEMS][20] = {"EIA0",
+                                                                                                                     "128-EIA1",
+                                                                                                                     "128-EIA2"};
+// Structs
+// Functions
+LIBLTE_ERROR_ENUM liblte_security_generate_k_nas(uint8                                       *k_asme,
+                                                 LIBLTE_SECURITY_CIPHERING_ALGORITHM_ID_ENUM  enc_alg_id,
+                                                 LIBLTE_SECURITY_INTEGRITY_ALGORITHM_ID_ENUM  int_alg_id,
+                                                 uint8                                       *k_nas_enc,
+                                                 uint8                                       *k_nas_int);
+
+/*********************************************************************
+    Name: liblte_security_generate_k_rrc
+
+    Description: Generate the RRC security keys KRRCenc and KRRCint.
+
+    Document Reference: 33.401 v10.0.0 Annex A.2
+*********************************************************************/
+// Defines
+// Enums
+// Structs
+// Functions
+LIBLTE_ERROR_ENUM liblte_security_generate_k_rrc(uint8                                       *k_enb,
+                                                 LIBLTE_SECURITY_CIPHERING_ALGORITHM_ID_ENUM  enc_alg_id,
+                                                 LIBLTE_SECURITY_INTEGRITY_ALGORITHM_ID_ENUM  int_alg_id,
+                                                 uint8                                       *k_rrc_enc,
+                                                 uint8                                       *k_rrc_int);
+
+/*********************************************************************
+    Name: liblte_security_generate_k_up
+
+    Description: Generate the user plane security keys KUPenc and
+                 KUPint.
+
+    Document Reference: 33.401 v10.0.0 Annex A.2
+*********************************************************************/
+// Defines
+// Enums
+// Structs
+// Functions
+LIBLTE_ERROR_ENUM liblte_security_generate_k_up(uint8                                       *k_enb,
+                                                LIBLTE_SECURITY_CIPHERING_ALGORITHM_ID_ENUM  enc_alg_id,
+                                                LIBLTE_SECURITY_INTEGRITY_ALGORITHM_ID_ENUM  int_alg_id,
+                                                uint8                                       *k_up_enc,
+                                                uint8                                       *k_up_int);
+
+/*********************************************************************
+    Name: liblte_security_128_eia2
+
+    Description: 128-bit integrity algorithm EIA2.
+
+    Document Reference: 33.401 v10.0.0 Annex B.2.3
+                        33.102 v10.0.0 Section 6.5.4
+                        RFC4493
+*********************************************************************/
+// Defines
+#define LIBLTE_SECURITY_DIRECTION_UPLINK   0
+#define LIBLTE_SECURITY_DIRECTION_DOWNLINK 1
+// Enums
+// Structs
+// Functions
+LIBLTE_ERROR_ENUM liblte_security_128_eia2(uint8  *key,
+                                           uint32  count,
+                                           uint8   bearer,
+                                           uint8   direction,
+                                           uint8  *msg,
+                                           uint32  msg_len,
+                                           uint8  *mac);
+LIBLTE_ERROR_ENUM liblte_security_128_eia2(uint8                 *key,
+                                           uint32                 count,
+                                           uint8                  bearer,
+                                           uint8                  direction,
+                                           LIBLTE_BIT_MSG_STRUCT *msg,
+                                           uint8                 *mac);
 
 /*********************************************************************
     Name: liblte_security_milenage_f1

@@ -28,6 +28,8 @@
     05/04/2014    Ben Wojtowicz    Added radio bearer support.
     06/15/2014    Ben Wojtowicz    Added initialize routine.
     08/03/2014    Ben Wojtowicz    Refactored user identities.
+    09/03/2014    Ben Wojtowicz    Added ciphering and integrity algorithm
+                                   storing.
 
 *******************************************************************************/
 
@@ -63,6 +65,18 @@ typedef struct{
     uint64 imei;
 }LTE_FDD_ENB_USER_ID_STRUCT;
 
+typedef struct{
+    uint32 nas_count_ul;
+    uint32 nas_count_dl;
+    uint8  rand[16];
+    uint8  res[8];
+    uint8  ck[16];
+    uint8  ik[16];
+    uint8  autn[16];
+    uint8  k_nas_enc[32];
+    uint8  k_nas_int[32];
+}LTE_FDD_ENB_AUTHENTICATION_VECTOR_STRUCT;
+
 /*******************************************************************************
                               CLASS DECLARATIONS
 *******************************************************************************/
@@ -90,6 +104,26 @@ public:
     void set_c_rnti(uint16 _c_rnti);
     uint16 get_c_rnti(void);
     bool is_c_rnti_set(void);
+    void set_auth_vec(LTE_FDD_ENB_AUTHENTICATION_VECTOR_STRUCT *av);
+    LTE_FDD_ENB_AUTHENTICATION_VECTOR_STRUCT* get_auth_vec(void);
+    void increment_nas_count_dl(void);
+    void increment_nas_count_ul(void);
+    bool is_auth_vec_set(void);
+
+    // Capabilities
+    void set_eea_support(uint8 eea, bool support);
+    bool get_eea_support(uint8 eea);
+    void set_eia_support(uint8 eia, bool support);
+    bool get_eia_support(uint8 eia);
+    void set_uea_support(uint8 uea, bool support);
+    bool get_uea_support(uint8 uea);
+    bool is_uea_set(void);
+    void set_uia_support(uint8 uia, bool support);
+    bool get_uia_support(uint8 uia);
+    bool is_uia_set(void);
+    void set_gea_support(uint8 gea, bool support);
+    bool get_gea_support(uint8 gea);
+    bool is_gea_set(void);
 
     // Radio Bearers
     void get_srb0(LTE_fdd_enb_rb **rb);
@@ -101,6 +135,10 @@ public:
     LTE_FDD_ENB_ERROR_ENUM get_srb2(LTE_fdd_enb_rb **rb);
 
     // MAC
+    bool get_dl_ndi(void);
+    void flip_dl_ndi(void);
+    bool get_ul_ndi(void);
+    void flip_ul_ndi(void);
     LIBLTE_MAC_PDU_STRUCT pusch_mac_pdu;
 
     // Generic
@@ -109,17 +147,33 @@ public:
 
 private:
     // Identity
-    LTE_FDD_ENB_USER_ID_STRUCT id;
-    uint64                     temp_id;
-    uint32                     c_rnti;
-    bool                       id_set;
-    bool                       c_rnti_set;
+    LTE_FDD_ENB_USER_ID_STRUCT               id;
+    LTE_FDD_ENB_AUTHENTICATION_VECTOR_STRUCT auth_vec;
+    uint64                                   temp_id;
+    uint32                                   c_rnti;
+    bool                                     id_set;
+    bool                                     c_rnti_set;
+    bool                                     auth_vec_set;
+
+    // Capabilities
+    bool eea_support[8];
+    bool eia_support[8];
+    bool uea_support[8];
+    bool uea_set;
+    bool uia_support[8];
+    bool uia_set;
+    bool gea_support[8];
+    bool gea_set;
 
     // Radio Bearers
     LTE_fdd_enb_rb *srb0;
     LTE_fdd_enb_rb *srb1;
     LTE_fdd_enb_rb *srb2;
     LTE_fdd_enb_rb *drb[8];
+
+    // MAC
+    bool dl_ndi;
+    bool ul_ndi;
 
     // Generic
     bool delete_at_idle;

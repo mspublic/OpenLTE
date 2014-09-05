@@ -38,6 +38,7 @@
     07/22/2014    Ben Wojtowicz    Added clock source as a configurable
                                    parameter.
     08/03/2014    Ben Wojtowicz    Fixed clock_source bug.
+    09/03/2014    Ben Wojtowicz    Fixed stop issue.
 
 *******************************************************************************/
 
@@ -220,6 +221,7 @@ LTE_FDD_ENB_ERROR_ENUM LTE_fdd_enb_radio::stop(void)
     if(started)
     {
         started = false;
+        start_mutex.unlock();
         if(0 != selected_radio_idx)
         {
             usrp->issue_stream_cmd(cmd);
@@ -577,7 +579,6 @@ void* LTE_fdd_enb_radio::radio_thread_func(void *inputs)
     uint32                           num_samps      = 0;
     uint32                           radio_idx      = radio->get_selected_radio_idx();
     uint16                           rx_current_tti = (LTE_FDD_ENB_CURRENT_TTI_MAX + 1) - 2;
-    bool                             not_done       = true;
     bool                             init_needed    = true;
     bool                             rx_synced      = false;
 
@@ -589,8 +590,7 @@ void* LTE_fdd_enb_radio::radio_thread_func(void *inputs)
     sleep_time.tv_sec  = 0;
     sleep_time.tv_nsec = 1000000;
 
-    while(not_done &&
-          radio->is_started())
+    while(radio->is_started())
     {
         if(0 == radio_idx)
         {
@@ -786,4 +786,6 @@ void* LTE_fdd_enb_radio::radio_thread_func(void *inputs)
             }
         }
     }
+
+    return(NULL);
 }

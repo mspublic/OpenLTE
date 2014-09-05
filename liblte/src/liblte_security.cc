@@ -25,6 +25,8 @@
     Revision History
     ----------    -------------    --------------------------------------------
     08/03/2014    Ben Wojtowicz    Created file.
+    09/03/2014    Ben Wojtowicz    Added key generation and EIA2 and fixed MCC
+                                   and MNC packing.
 
 *******************************************************************************/
 
@@ -34,6 +36,8 @@
 
 #include "liblte_security.h"
 #include "polarssl/compat-1.2.h"
+#include "polarssl/aes.h"
+#include "math.h"
 
 /*******************************************************************************
                               DEFINES
@@ -227,14 +231,14 @@ LIBLTE_ERROR_ENUM liblte_security_generate_k_asme(uint8  *ck,
     {
         // Construct S
         s[0] = 0x10; // FC
-        s[1] = ((mcc/10) % 10) | ((mcc/100) % 10); // First byte of P0
+        s[1] = (((mcc/10) % 10) << 4) | ((mcc/100) % 10); // First byte of P0
         if(mnc < 100)
         {
-            s[2] = 0xF | (mcc % 10); // Second byte of P0
-            s[3] = (mnc % 10) | ((mnc/10) % 10); // Third byte of P0
+            s[2] = 0xF0 | (mcc % 10); // Second byte of P0
+            s[3] = ((mnc % 10) << 4) | ((mnc/10) % 10); // Third byte of P0
         }else{
-            s[2] = (mnc % 10) | (mcc % 10); // Second byte of P0
-            s[3] = ((mnc/10) % 10) | ((mnc/100) % 10); // Third byte of P0
+            s[2] = ((mnc % 10) << 4) | (mcc % 10); // Second byte of P0
+            s[3] = (((mnc/10) % 10) << 4) | ((mnc/100) % 10); // Third byte of P0
         }
         s[4] = 0x00; // First byte of L0
         s[5] = 0x03; // Second byte of L0
@@ -252,7 +256,427 @@ LIBLTE_ERROR_ENUM liblte_security_generate_k_asme(uint8  *ck,
             key[16+i] = ik[i];
         }
 
-        sha2_hmac(key, 32*8, s, 14*8, k_asme, 0);
+        // Derive Kasme
+        sha2_hmac(key, 32, s, 14, k_asme, 0);
+
+        err = LIBLTE_SUCCESS;
+    }
+
+    return(err);
+}
+
+/*********************************************************************
+    Name: liblte_security_generate_k_enb
+
+    Description: Generate the security key Kenb.
+
+    Document Reference: 33.401 v10.0.0 Annex A.2
+*********************************************************************/
+LIBLTE_ERROR_ENUM liblte_security_generate_k_enb(uint8  *k_asme,
+                                                 uint32  nas_count,
+                                                 uint8  *k_enb)
+{
+    LIBLTE_ERROR_ENUM err = LIBLTE_ERROR_INVALID_INPUTS;
+    uint8             s[7];
+
+    if(k_asme != NULL &&
+       k_enb  != NULL)
+    {
+        // Construct S
+        s[0] = 0x11; // FC
+        s[1] = (nas_count >> 24) & 0xFF; // First byte of P0
+        s[2] = (nas_count >> 16) & 0xFF; // Second byte of P0
+        s[3] = (nas_count >> 8) & 0xFF; // Third byte of P0
+        s[4] = nas_count & 0xFF; // Fourth byte of P0
+        s[5] = 0x00; // First byte of L0
+        s[6] = 0x04; // Second byte of L0
+
+        // Derive Kenb
+        sha2_hmac(k_asme, 32, s, 7, k_enb, 0);
+
+        err = LIBLTE_SUCCESS;
+    }
+
+    return(err);
+}
+
+/*********************************************************************
+    Name: liblte_security_generate_k_nas
+
+    Description: Generate the NAS security keys KNASenc and KNASint.
+
+    Document Reference: 33.401 v10.0.0 Annex A.2
+*********************************************************************/
+LIBLTE_ERROR_ENUM liblte_security_generate_k_nas(uint8                                       *k_asme,
+                                                 LIBLTE_SECURITY_CIPHERING_ALGORITHM_ID_ENUM  enc_alg_id,
+                                                 LIBLTE_SECURITY_INTEGRITY_ALGORITHM_ID_ENUM  int_alg_id,
+                                                 uint8                                       *k_nas_enc,
+                                                 uint8                                       *k_nas_int)
+{
+    LIBLTE_ERROR_ENUM err = LIBLTE_ERROR_INVALID_INPUTS;
+    uint8             s[7];
+
+    if(k_asme    != NULL &&
+       k_nas_enc != NULL &&
+       k_nas_int != NULL)
+    {
+        // Construct S for KNASenc
+        s[0] = 0x15; // FC
+        s[1] = 0x01; // P0
+        s[2] = 0x00; // First byte of L0
+        s[3] = 0x01; // Second byte of L0
+        s[4] = enc_alg_id; // P1
+        s[5] = 0x00; // First byte of L1
+        s[6] = 0x01; // Second byte of L1
+
+        // Derive KNASenc
+        sha2_hmac(k_asme, 32, s, 7, k_nas_enc, 0);
+
+        // Construct S for KNASint
+        s[0] = 0x15; // FC
+        s[1] = 0x02; // P0
+        s[2] = 0x00; // First byte of L0
+        s[3] = 0x01; // Second byte of L0
+        s[4] = int_alg_id; // P1
+        s[5] = 0x00; // First byte of L1
+        s[6] = 0x01; // Second byte of L1
+
+        // Derive KNASint
+        sha2_hmac(k_asme, 32, s, 7, k_nas_int, 0);
+
+        err = LIBLTE_SUCCESS;
+    }
+
+    return(err);
+}
+
+/*********************************************************************
+    Name: liblte_security_generate_k_rrc
+
+    Description: Generate the RRC security keys KRRCenc and KRRCint.
+
+    Document Reference: 33.401 v10.0.0 Annex A.2
+*********************************************************************/
+LIBLTE_ERROR_ENUM liblte_security_generate_k_rrc(uint8                                       *k_enb,
+                                                 LIBLTE_SECURITY_CIPHERING_ALGORITHM_ID_ENUM  enc_alg_id,
+                                                 LIBLTE_SECURITY_INTEGRITY_ALGORITHM_ID_ENUM  int_alg_id,
+                                                 uint8                                       *k_rrc_enc,
+                                                 uint8                                       *k_rrc_int)
+{
+    LIBLTE_ERROR_ENUM err = LIBLTE_ERROR_INVALID_INPUTS;
+    uint8             s[7];
+
+    if(k_enb     != NULL &&
+       k_rrc_enc != NULL &&
+       k_rrc_int != NULL)
+    {
+        // Construct S for KRRCenc
+        s[0] = 0x15; // FC
+        s[1] = 0x03; // P0
+        s[2] = 0x00; // First byte of L0
+        s[3] = 0x01; // Second byte of L0
+        s[4] = enc_alg_id; // P1
+        s[5] = 0x00; // First byte of L1
+        s[6] = 0x01; // Second byte of L1
+
+        // Derive KRRCenc
+        sha2_hmac(k_enb, 32, s, 7, k_rrc_enc, 0);
+
+        // Construct S for KRRCint
+        s[0] = 0x15; // FC
+        s[1] = 0x04; // P0
+        s[2] = 0x00; // First byte of L0
+        s[3] = 0x01; // Second byte of L0
+        s[4] = int_alg_id; // P1
+        s[5] = 0x00; // First byte of L1
+        s[6] = 0x01; // Second byte of L1
+
+        // Derive KRRCint
+        sha2_hmac(k_enb, 32, s, 7, k_rrc_int, 0);
+
+        err = LIBLTE_SUCCESS;
+    }
+
+    return(err);
+}
+
+/*********************************************************************
+    Name: liblte_security_generate_k_up
+
+    Description: Generate the user plane security keys KUPenc and
+                 KUPint.
+
+    Document Reference: 33.401 v10.0.0 Annex A.2
+*********************************************************************/
+LIBLTE_ERROR_ENUM liblte_security_generate_k_up(uint8                                       *k_enb,
+                                                LIBLTE_SECURITY_CIPHERING_ALGORITHM_ID_ENUM  enc_alg_id,
+                                                LIBLTE_SECURITY_INTEGRITY_ALGORITHM_ID_ENUM  int_alg_id,
+                                                uint8                                       *k_up_enc,
+                                                uint8                                       *k_up_int)
+{
+    LIBLTE_ERROR_ENUM err = LIBLTE_ERROR_INVALID_INPUTS;
+    uint8             s[7];
+
+    if(k_enb    != NULL &&
+       k_up_enc != NULL &&
+       k_up_int != NULL)
+    {
+        // Construct S for KUPenc
+        s[0] = 0x15; // FC
+        s[1] = 0x05; // P0
+        s[2] = 0x00; // First byte of L0
+        s[3] = 0x01; // Second byte of L0
+        s[4] = enc_alg_id; // P1
+        s[5] = 0x00; // First byte of L1
+        s[6] = 0x01; // Second byte of L1
+
+        // Derive KUPenc
+        sha2_hmac(k_enb, 32, s, 7, k_up_enc, 0);
+
+        // Construct S for KUPint
+        s[0] = 0x15; // FC
+        s[1] = 0x06; // P0
+        s[2] = 0x00; // First byte of L0
+        s[3] = 0x01; // Second byte of L0
+        s[4] = int_alg_id; // P1
+        s[5] = 0x00; // First byte of L1
+        s[6] = 0x01; // Second byte of L1
+
+        // Derive KUPint
+        sha2_hmac(k_enb, 32, s, 7, k_up_int, 0);
+
+        err = LIBLTE_SUCCESS;
+    }
+
+    return(err);
+}
+
+/*********************************************************************
+    Name: liblte_security_128_eia2
+
+    Description: 128-bit integrity algorithm EIA2.
+
+    Document Reference: 33.401 v10.0.0 Annex B.2.3
+                        33.102 v10.0.0 Section 6.5.4
+                        RFC4493
+*********************************************************************/
+LIBLTE_ERROR_ENUM liblte_security_128_eia2(uint8  *key,
+                                           uint32  count,
+                                           uint8   bearer,
+                                           uint8   direction,
+                                           uint8  *msg,
+                                           uint32  msg_len,
+                                           uint8  *mac)
+{
+    LIBLTE_ERROR_ENUM err = LIBLTE_ERROR_INVALID_INPUTS;
+    uint8             M[msg_len+8+16];
+    aes_context       ctx;
+    uint32            i;
+    uint32            j;
+    uint32            n;
+    uint32            pad_bits;
+    uint8             const_zero[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+    uint8             L[16];
+    uint8             K1[16];
+    uint8             K2[16];
+    uint8             T[16];
+    uint8             tmp[16];
+
+    if(key != NULL &&
+       msg != NULL &&
+       mac != NULL)
+    {
+        // Subkey L generation
+        aes_setkey_enc(&ctx, key, 128);
+        aes_crypt_ecb(&ctx, AES_ENCRYPT, const_zero, L);
+
+        // Subkey K1 generation
+        for(i=0; i<15; i++)
+        {
+            K1[i] = (L[i] << 1) | ((L[i+1] >> 7) & 0x01);
+        }
+        K1[15] = L[15] << 1;
+        if(L[0] & 0x80)
+        {
+            K1[15] ^= 0x87;
+        }
+
+        // Subkey K2 generation
+        for(i=0; i<15; i++)
+        {
+            K2[i] = (K1[i] << 1) | ((K1[i+1] >> 7) & 0x01);
+        }
+        K2[15] = K1[15] << 1;
+        if(K1[0] & 0x80)
+        {
+            K2[15] ^= 0x87;
+        }
+
+        // Construct M
+        memset(M, 0, msg_len+8+16);
+        M[0] = (count >> 24) & 0xFF;
+        M[1] = (count >> 16) & 0xFF;
+        M[2] = (count >> 8) & 0xFF;
+        M[3] = count & 0xFF;
+        M[4] = (bearer << 3) | (direction << 2);
+        for(i=0; i<msg_len; i++)
+        {
+            M[8+i] = msg[i];
+        }
+
+        // MAC generation
+        n = (uint32)(ceilf((float)(msg_len+8)/(float)(16)));
+        for(i=0; i<16; i++)
+        {
+            T[i] = 0;
+        }
+        for(i=0; i<n-1; i++)
+        {
+            for(j=0; j<16; j++)
+            {
+                tmp[j] = T[j] ^ M[i*16 + j];
+            }
+            aes_crypt_ecb(&ctx, AES_ENCRYPT, tmp, T);
+        }
+        pad_bits = ((msg_len*8) + 64) % 128;
+        if(pad_bits == 0)
+        {
+            for(j=0; j<16; j++)
+            {
+                tmp[j] = T[j] ^ K1[j] ^ M[i*16 + j];
+            }
+            aes_crypt_ecb(&ctx, AES_ENCRYPT, tmp, T);
+        }else{
+            pad_bits                       = (128 - pad_bits) - 1;
+            M[i*16 + (15 - (pad_bits/8))] |= 0x1 << (pad_bits % 8);
+            for(j=0; j<16; j++)
+            {
+                tmp[j] = T[j] ^ K2[j] ^ M[i*16 + j];
+            }
+            aes_crypt_ecb(&ctx, AES_ENCRYPT, tmp, T);
+        }
+
+        for(i=0; i<4; i++)
+        {
+            mac[i] = T[i];
+        }
+
+        err = LIBLTE_SUCCESS;
+    }
+
+    return(err);
+}
+LIBLTE_ERROR_ENUM liblte_security_128_eia2(uint8                 *key,
+                                           uint32                 count,
+                                           uint8                  bearer,
+                                           uint8                  direction,
+                                           LIBLTE_BIT_MSG_STRUCT *msg,
+                                           uint8                 *mac)
+{
+    LIBLTE_ERROR_ENUM err = LIBLTE_ERROR_INVALID_INPUTS;
+    uint8             M[msg->N_bits*8+8+16];
+    aes_context       ctx;
+    uint32            i;
+    uint32            j;
+    uint32            n;
+    uint32            pad_bits;
+    uint8             const_zero[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+    uint8             L[16];
+    uint8             K1[16];
+    uint8             K2[16];
+    uint8             T[16];
+    uint8             tmp[16];
+
+    if(key != NULL &&
+       msg != NULL &&
+       mac != NULL)
+    {
+        // Subkey L generation
+        aes_setkey_enc(&ctx, key, 128);
+        aes_crypt_ecb(&ctx, AES_ENCRYPT, const_zero, L);
+
+        // Subkey K1 generation
+        for(i=0; i<15; i++)
+        {
+            K1[i] = (L[i] << 1) | ((L[i+1] >> 7) & 0x01);
+        }
+        K1[15] = L[15] << 1;
+        if(L[0] & 0x80)
+        {
+            K1[15] ^= 0x87;
+        }
+
+        // Subkey K2 generation
+        for(i=0; i<15; i++)
+        {
+            K2[i] = (K1[i] << 1) | ((K1[i+1] >> 7) & 0x01);
+        }
+        K2[15] = K1[15] << 1;
+        if(K1[0] & 0x80)
+        {
+            K2[15] ^= 0x87;
+        }
+
+        // Construct M
+        memset(M, 0, msg->N_bits*8+8+16);
+        M[0] = (count >> 24) & 0xFF;
+        M[1] = (count >> 16) & 0xFF;
+        M[2] = (count >> 8) & 0xFF;
+        M[3] = count & 0xFF;
+        M[4] = (bearer << 3) | (direction << 2);
+        for(i=0; i<msg->N_bits/8; i++)
+        {
+            M[8+i] = 0;
+            for(j=0; j<8; j++)
+            {
+                M[8+i] |= msg->msg[i*8+j] << (7-j);
+            }
+        }
+        if((msg->N_bits % 8) != 0)
+        {
+            M[8+i] = 0;
+            for(j=0; j<msg->N_bits % 8; j++)
+            {
+                M[8+i] |= msg->msg[i*8+j] << (7-j);
+            }
+        }
+
+        // MAC generation
+        n = (uint32)(ceilf((float)(msg->N_bits+64)/(float)(128)));
+        for(i=0; i<16; i++)
+        {
+            T[i] = 0;
+        }
+        for(i=0; i<n-1; i++)
+        {
+            for(j=0; j<16; j++)
+            {
+                tmp[j] = T[j] ^ M[i*16 + j];
+            }
+            aes_crypt_ecb(&ctx, AES_ENCRYPT, tmp, T);
+        }
+        pad_bits = (msg->N_bits + 64) % 128;
+        if(pad_bits == 0)
+        {
+            for(j=0; j<16; j++)
+            {
+                tmp[j] = T[j] ^ K1[j] ^ M[i*16 + j];
+            }
+            aes_crypt_ecb(&ctx, AES_ENCRYPT, tmp, T);
+        }else{
+            pad_bits                       = (128 - pad_bits) - 1;
+            M[i*16 + (15 - (pad_bits/8))] |= 0x1 << (pad_bits % 8);
+            for(j=0; j<16; j++)
+            {
+                tmp[j] = T[j] ^ K2[j] ^ M[i*16 + j];
+            }
+            aes_crypt_ecb(&ctx, AES_ENCRYPT, tmp, T);
+        }
+
+        for(i=0; i<4; i++)
+        {
+            mac[i] = T[i];
+        }
 
         err = LIBLTE_SUCCESS;
     }

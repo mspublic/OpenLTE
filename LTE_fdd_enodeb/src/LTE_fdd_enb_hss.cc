@@ -27,6 +27,8 @@
     ----------    -------------    --------------------------------------------
     06/15/2014    Ben Wojtowicz    Created file
     08/03/2014    Ben Wojtowicz    Added authentication vector support.
+    09/03/2014    Ben Wojtowicz    Added sequence number resynch and key
+                                   generation.
 
 *******************************************************************************/
 
@@ -100,8 +102,7 @@ LTE_fdd_enb_hss::~LTE_fdd_enb_hss()
 /****************************/
 LTE_FDD_ENB_ERROR_ENUM LTE_fdd_enb_hss::add_user(std::string imsi,
                                                  std::string imei,
-                                                 std::string k,
-                                                 std::string amf)
+                                                 std::string k)
 {
     std::list<LTE_FDD_ENB_HSS_USER_STRUCT *>::iterator  iter;
     LTE_FDD_ENB_HSS_USER_STRUCT                        *new_user = new LTE_FDD_ENB_HSS_USER_STRUCT;
@@ -109,7 +110,6 @@ LTE_FDD_ENB_ERROR_ENUM LTE_fdd_enb_hss::add_user(std::string imsi,
     const char                                         *imsi_str = imsi.c_str();
     const char                                         *imei_str = imei.c_str();
     const char                                         *k_str    = k.c_str();
-    const char                                         *amf_str  = amf.c_str();
     uint32                                              i;
 
     if(NULL != new_user      &&
@@ -149,27 +149,6 @@ LTE_FDD_ENB_ERROR_ENUM LTE_fdd_enb_hss::add_user(std::string imsi,
                 new_user->stored_data.k[i] |= (k_str[i*2+1] - 'A') + 0xA;
             }else{
                 new_user->stored_data.k[i] |= (k_str[i*2+1] - 'a') + 0xA;
-            }
-        }
-
-        for(i=0; i<2; i++)
-        {
-            if(amf_str[i*2+0] >= '0' && amf_str[i*2+0] <= '9')
-            {
-                new_user->stored_data.amf[i] = (amf_str[i*2+0] - '0') << 4;
-            }else if(amf_str[i*2+0] >= 'A' && amf_str[i*2+0] <= 'F'){
-                new_user->stored_data.amf[i] = ((amf_str[i*2+0] - 'A') + 0xA) << 4;
-            }else{
-                new_user->stored_data.amf[i] = ((amf_str[i*2+0] - 'a') + 0xA) << 4;
-            }
-
-            if(amf_str[i*2+1] >= '0' && amf_str[i*2+1] <= '9')
-            {
-                new_user->stored_data.amf[i] |= amf_str[i*2+1] - '0';
-            }else if(amf_str[i*2+1] >= 'A' && amf_str[i*2+1] <= 'F'){
-                new_user->stored_data.amf[i] |= (amf_str[i*2+1] - 'A') + 0xA;
-            }else{
-                new_user->stored_data.amf[i] |= (amf_str[i*2+1] - 'a') + 0xA;
             }
         }
 
@@ -244,24 +223,6 @@ std::string LTE_fdd_enb_hss::print_all_users(void)
                 output += (char)((hex_val-0xA) + 'A');
             }
             hex_val = (*iter)->stored_data.k[i] & 0xF;
-            if(hex_val < 0xA)
-            {
-                output += (char)(hex_val + '0');
-            }else{
-                output += (char)((hex_val-0xA) + 'A');
-            }
-        }
-        output += " amf=";
-        for(i=0; i<2; i++)
-        {
-            hex_val = ((*iter)->stored_data.amf[i] >> 4) & 0xF;
-            if(hex_val < 0xA)
-            {
-                output += (char)(hex_val + '0');
-            }else{
-                output += (char)((hex_val-0xA) + 'A');
-            }
-            hex_val = (*iter)->stored_data.amf[i] & 0xF;
             if(hex_val < 0xA)
             {
                 output += (char)(hex_val + '0');
@@ -348,6 +309,7 @@ void LTE_fdd_enb_hss::generate_security_data(LTE_FDD_ENB_USER_ID_STRUCT *id,
     uint32                                             i;
     uint32                                             rand_val;
     uint8                                              sqn[6];
+    uint8                                              amf[2] = {0x80, 0x00}; // 3GPP 33.102 v10.0.0 Annex H
 
     for(iter=user_list.begin(); iter!=user_list.end(); iter++)
     {
@@ -355,6 +317,7 @@ void LTE_fdd_enb_hss::generate_security_data(LTE_FDD_ENB_USER_ID_STRUCT *id,
            id->imsi == (*iter)->id.imsi)
         {
             // Generate sqn
+            // From 33.102 v10.0.0 section C.3.2
             (*iter)->generated_data.seq_he = ((*iter)->generated_data.seq_he + 1) % LTE_FDD_ENB_SEQ_HE_MAX_VALUE;
             (*iter)->generated_data.ind_he = ((*iter)->generated_data.ind_he + 1) % LTE_FDD_ENB_IND_HE_MAX_VALUE;
             (*iter)->generated_data.sqn_he = ((*iter)->generated_data.seq_he << LTE_FDD_ENB_IND_HE_N_BITS) | (*iter)->generated_data.ind_he;
@@ -377,8 +340,9 @@ void LTE_fdd_enb_hss::generate_security_data(LTE_FDD_ENB_USER_ID_STRUCT *id,
             liblte_security_milenage_f1((*iter)->stored_data.k,
                                         (*iter)->generated_data.auth_vec.rand,
                                         sqn,
-                                        (*iter)->stored_data.amf,
+                                        amf,
                                         (*iter)->generated_data.mac);
+
             liblte_security_milenage_f2345((*iter)->stored_data.k,
                                            (*iter)->generated_data.auth_vec.rand,
                                            (*iter)->generated_data.auth_vec.res,
@@ -393,12 +357,17 @@ void LTE_fdd_enb_hss::generate_security_data(LTE_FDD_ENB_USER_ID_STRUCT *id,
             }
             for(i=0; i<2; i++)
             {
-                (*iter)->generated_data.auth_vec.autn[6+i] = (*iter)->stored_data.amf[i];
+                (*iter)->generated_data.auth_vec.autn[6+i] = amf[i];
             }
             for(i=0; i<8; i++)
             {
                 (*iter)->generated_data.auth_vec.autn[8+i] = (*iter)->generated_data.mac[i];
             }
+
+            // Reset NAS counts
+            // 3GPP 33.401 v10.0.0 section 6.5
+            (*iter)->generated_data.auth_vec.nas_count_ul = 0;
+            (*iter)->generated_data.auth_vec.nas_count_dl = 0;
 
             // Generate Kasme
             liblte_security_generate_k_asme((*iter)->generated_data.auth_vec.ck,
@@ -410,10 +379,67 @@ void LTE_fdd_enb_hss::generate_security_data(LTE_FDD_ENB_USER_ID_STRUCT *id,
                                             (*iter)->generated_data.k_asme);
 
             // Generate K_nas_enc and K_nas_int
-            // FIXME
+            // FIXME: Dynamic picking of algorithms
+            liblte_security_generate_k_nas((*iter)->generated_data.k_asme,
+                                           LIBLTE_SECURITY_CIPHERING_ALGORITHM_ID_EEA0,
+                                           LIBLTE_SECURITY_INTEGRITY_ALGORITHM_ID_128_EIA2,
+                                           (*iter)->generated_data.auth_vec.k_nas_enc,
+                                           (*iter)->generated_data.auth_vec.k_nas_int);
 
-            // Generate K_enb, K_up_enc, K_rrc_int, and K_rrc_enc
-            // FIXME
+            // Generate K_enb
+            liblte_security_generate_k_enb((*iter)->generated_data.k_asme,
+                                           (*iter)->generated_data.auth_vec.nas_count_ul,
+                                           (*iter)->generated_data.k_enb);
+
+            // Generate K_rrc_enc and K_rrc_int
+            liblte_security_generate_k_rrc((*iter)->generated_data.k_enb,
+                                           LIBLTE_SECURITY_CIPHERING_ALGORITHM_ID_EEA0,
+                                           LIBLTE_SECURITY_INTEGRITY_ALGORITHM_ID_128_EIA2,
+                                           (*iter)->generated_data.k_rrc_enc,
+                                           (*iter)->generated_data.k_rrc_int);
+
+            // Generate K_up_enc and K_up_int
+            liblte_security_generate_k_up((*iter)->generated_data.k_enb,
+                                          LIBLTE_SECURITY_CIPHERING_ALGORITHM_ID_EEA0,
+                                          LIBLTE_SECURITY_INTEGRITY_ALGORITHM_ID_128_EIA2,
+                                          (*iter)->generated_data.k_up_enc,
+                                          (*iter)->generated_data.k_up_int);
+
+            break;
+        }
+    }
+}
+void LTE_fdd_enb_hss::security_resynch(LTE_FDD_ENB_USER_ID_STRUCT *id,
+                                       uint16                      mcc,
+                                       uint16                      mnc,
+                                       uint8                      *auts)
+{
+    boost::mutex::scoped_lock                          lock(user_mutex);
+    std::list<LTE_FDD_ENB_HSS_USER_STRUCT *>::iterator iter;
+    uint32                                             i;
+    uint8                                              sqn[6];
+
+    for(iter=user_list.begin(); iter!=user_list.end(); iter++)
+    {
+        if(id->imei == (*iter)->id.imei &&
+           id->imsi == (*iter)->id.imsi)
+        {
+            // Decode returned SQN and break into SEQ and IND
+            liblte_security_milenage_f5_star((*iter)->stored_data.k,
+                                             (*iter)->generated_data.auth_vec.rand,
+                                             (*iter)->generated_data.ak);
+            (*iter)->generated_data.sqn_he = 0;
+            for(i=0; i<6; i++)
+            {
+                sqn[i]                          = auts[i] ^ (*iter)->generated_data.ak[i];
+                (*iter)->generated_data.sqn_he |= (uint64)sqn[i] << (5-i)*8;
+            }
+            (*iter)->generated_data.seq_he = (*iter)->generated_data.sqn_he >> LTE_FDD_ENB_IND_HE_N_BITS;
+            (*iter)->generated_data.ind_he = (*iter)->generated_data.sqn_he & LTE_FDD_ENB_IND_HE_MASK;
+            if((*iter)->generated_data.ind_he > 0)
+            {
+                (*iter)->generated_data.ind_he--;
+            }
 
             break;
         }

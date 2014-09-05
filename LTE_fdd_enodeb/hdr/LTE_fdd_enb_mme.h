@@ -29,6 +29,7 @@
     06/15/2014    Ben Wojtowicz    Added RRC NAS message handler.
     08/03/2014    Ben Wojtowicz    Added message parsers, state machines, and
                                    message senders.
+    09/03/2014    Ben Wojtowicz    Added authentication and security support.
 
 *******************************************************************************/
 
@@ -98,15 +99,20 @@ private:
     // Message Parsers
     void parse_attach_request(LIBLTE_BYTE_MSG_STRUCT *msg, LTE_fdd_enb_user *user, LTE_fdd_enb_rb *rb);
     void parse_authentication_failure(LIBLTE_BYTE_MSG_STRUCT *msg, LTE_fdd_enb_user *user, LTE_fdd_enb_rb *rb);
+    void parse_authentication_response(LIBLTE_BYTE_MSG_STRUCT *msg, LTE_fdd_enb_user *user, LTE_fdd_enb_rb *rb);
     void parse_identity_response(LIBLTE_BYTE_MSG_STRUCT *msg, LTE_fdd_enb_user *user, LTE_fdd_enb_rb *rb);
+    void parse_security_mode_complete(LIBLTE_BYTE_MSG_STRUCT *msg, LTE_fdd_enb_user *user, LTE_fdd_enb_rb *rb);
+    void parse_security_mode_reject(LIBLTE_BYTE_MSG_STRUCT *msg, LTE_fdd_enb_user *user, LTE_fdd_enb_rb *rb);
 
     // State Machines
     void attach_sm(LTE_fdd_enb_user *user, LTE_fdd_enb_rb *rb);
 
     // Message Senders
     void send_attach_reject(LTE_fdd_enb_user *user, LTE_fdd_enb_rb *rb, uint8 rej_cause);
+    void send_authentication_reject(LTE_fdd_enb_user *user, LTE_fdd_enb_rb *rb);
     void send_authentication_request(LTE_fdd_enb_user *user, LTE_fdd_enb_rb *rb);
     void send_identity_request(LTE_fdd_enb_user *user, LTE_fdd_enb_rb *rb, uint8 id_type);
+    void send_security_mode_command(LTE_fdd_enb_user *user, LTE_fdd_enb_rb *rb);
 
     // Parameters
     boost::mutex                sys_info_mutex;

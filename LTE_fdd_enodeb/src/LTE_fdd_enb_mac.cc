@@ -37,6 +37,8 @@
     06/15/2014    Ben Wojtowicz    Added uplink scheduling and changed fn_combo
                                    to current_tti.
     08/03/2014    Ben Wojtowicz    Removed debug message.
+    09/03/2014    Ben Wojtowicz    Combined the contention resolution ID and
+                                   the first downlink RLC message.
 
 *******************************************************************************/
 
@@ -510,10 +512,20 @@ void LTE_fdd_enb_mac::handle_sdu_ready(LTE_FDD_ENB_MAC_SDU_READY_MSG_STRUCT *sdu
         alloc.ndi  = false;
 
         // Pack the SDU
-        mac_pdu.chan_type         = LIBLTE_MAC_CHAN_TYPE_DLSCH;
-        mac_pdu.N_subheaders      = 1;
-        mac_pdu.subheader[0].lcid = sdu_ready->rb->get_rb_id();
-        memcpy(&mac_pdu.subheader[0].payload.sdu, sdu, sizeof(LIBLTE_BIT_MSG_STRUCT));
+        mac_pdu.chan_type = LIBLTE_MAC_CHAN_TYPE_DLSCH;
+        if(sdu_ready->rb->get_send_con_res_id())
+        {
+            mac_pdu.N_subheaders                          = 2;
+            mac_pdu.subheader[0].lcid                     = LIBLTE_MAC_DLSCH_UE_CONTENTION_RESOLUTION_ID_LCID;
+            mac_pdu.subheader[0].payload.ue_con_res_id.id = sdu_ready->rb->get_con_res_id();
+            mac_pdu.subheader[1].lcid                     = sdu_ready->rb->get_rb_id();
+            memcpy(&mac_pdu.subheader[1].payload.sdu, sdu, sizeof(LIBLTE_BIT_MSG_STRUCT));
+            sdu_ready->rb->set_send_con_res_id(false);
+        }else{
+            mac_pdu.N_subheaders      = 1;
+            mac_pdu.subheader[0].lcid = sdu_ready->rb->get_rb_id();
+            memcpy(&mac_pdu.subheader[0].payload.sdu, sdu, sizeof(LIBLTE_BIT_MSG_STRUCT));
+        }
 
         // Determine the current_tti
         current_tti = (sched_dl_subfr[sched_cur_dl_subfn].current_tti + 4) % (LTE_FDD_ENB_CURRENT_TTI_MAX + 1);
@@ -559,9 +571,7 @@ void LTE_fdd_enb_mac::handle_ulsch_ccch_sdu(LTE_fdd_enb_user      *user,
 {
     LTE_fdd_enb_rb                       *rb = NULL;
     LTE_FDD_ENB_RLC_PDU_READY_MSG_STRUCT  rlc_pdu_ready;
-    LIBLTE_MAC_PDU_STRUCT                 mac_pdu;
-    LIBLTE_PHY_ALLOCATION_STRUCT          alloc;
-    uint32                                current_tti;
+    uint64                                con_res_id;
     uint32                                i;
 
     if(LIBLTE_MAC_ULSCH_CCCH_LCID == lcid)
@@ -578,59 +588,15 @@ void LTE_fdd_enb_mac::handle_ulsch_ccch_sdu(LTE_fdd_enb_user      *user,
         // Get SRB0
         user->get_srb0(&rb);
 
-        // Fill in the contention resolution allocation
-        alloc.pre_coder_type = LIBLTE_PHY_PRE_CODER_TYPE_TX_DIVERSITY;
-        alloc.mod_type       = LIBLTE_PHY_MODULATION_TYPE_QPSK;
-        alloc.chan_type      = LIBLTE_PHY_CHAN_TYPE_DLSCH;
-        alloc.rv_idx         = 0;
-        alloc.N_codewords    = 1;
-        sys_info_mutex.lock();
-        if(1 == sys_info.N_ant)
-        {
-            alloc.tx_mode = 1;
-        }else{
-            alloc.tx_mode = 2;
-        }
-        sys_info_mutex.unlock();
-        alloc.rnti = user->get_c_rnti();
-        alloc.mcs  = 0;
-        alloc.tpc  = LIBLTE_PHY_TPC_COMMAND_DCI_1_1A_1B_1D_2_3_DB_ZERO;
-        alloc.ndi  = false;
-
-        // Pack the contention resolution PDU
-        mac_pdu.chan_type                             = LIBLTE_MAC_CHAN_TYPE_DLSCH;
-        mac_pdu.N_subheaders                          = 1;
-        mac_pdu.subheader[0].lcid                     = LIBLTE_MAC_DLSCH_UE_CONTENTION_RESOLUTION_ID_LCID;
-        mac_pdu.subheader[0].payload.ue_con_res_id.id = 0;
+        // Save the contention resolution ID
+        con_res_id = 0;
         for(i=0; i<sdu->N_bits; i++)
         {
-            mac_pdu.subheader[0].payload.ue_con_res_id.id <<= 1;
-            mac_pdu.subheader[0].payload.ue_con_res_id.id  |= sdu->msg[i];
+            con_res_id <<= 1;
+            con_res_id  |= sdu->msg[i];
         }
-
-        // Determine the contention resolution current_tti
-        current_tti = (sched_dl_subfr[sched_cur_dl_subfn].current_tti + 4) % (LTE_FDD_ENB_CURRENT_TTI_MAX + 1);
-
-        // Add the contention resolution PDU to the scheduling queue
-        if(LTE_FDD_ENB_ERROR_NONE != add_to_dl_sched_queue(current_tti,
-                                                           &mac_pdu,
-                                                           &alloc))
-        {
-            interface->send_debug_msg(LTE_FDD_ENB_DEBUG_TYPE_ERROR,
-                                      LTE_FDD_ENB_DEBUG_LEVEL_MAC,
-                                      __FILE__,
-                                      __LINE__,
-                                      "Can't schedule PDU");
-        }else{
-            interface->send_debug_msg(LTE_FDD_ENB_DEBUG_TYPE_INFO,
-                                      LTE_FDD_ENB_DEBUG_LEVEL_MAC,
-                                      __FILE__,
-                                      __LINE__,
-                                      &alloc.msg,
-                                      "PDU scheduled for RNTI=%u, DL_QUEUE_SIZE=%u",
-                                      alloc.rnti,
-                                      dl_sched_queue.size());
-        }
+        rb->set_con_res_id(con_res_id);
+        rb->set_send_con_res_id(true);
 
         // Queue the SDU for RLC
         rb->queue_rlc_pdu(sdu);

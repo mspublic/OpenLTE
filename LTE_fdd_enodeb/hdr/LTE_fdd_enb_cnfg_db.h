@@ -28,6 +28,7 @@
     01/18/2014    Ben Wojtowicz    Added set/get routines for uint32 values.
     03/26/2014    Ben Wojtowicz    Using the latest LTE library.
     08/03/2014    Ben Wojtowicz    Added support for limiting PCAP output.
+    09/03/2014    Ben Wojtowicz    Added better MCC/MNC support.
 
 *******************************************************************************/
 
@@ -80,6 +81,8 @@ typedef struct{
     uint32                                  N_sc_rb_ul;
     uint32                                  si_periodicity_T;
     uint32                                  si_win_len;
+    uint16                                  mcc;
+    uint16                                  mnc;
     bool                                    sib3_present;
     bool                                    sib4_present;
     bool                                    sib5_present;

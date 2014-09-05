@@ -35,6 +35,8 @@
     07/22/2014    Ben Wojtowicz    Added clock source as a configurable
                                    parameter.
     08/03/2014    Ben Wojtowicz    Added HSS support.
+    09/03/2014    Ben Wojtowicz    Added read only parameters for UL EARFCN,
+                                   DL center frequency and UL center frequency.
 
 *******************************************************************************/
 
@@ -89,6 +91,7 @@ typedef enum{
     LTE_FDD_ENB_ERROR_TIMER_NOT_FOUND,
     LTE_FDD_ENB_ERROR_CANT_REASSEMBLE_SDU,
     LTE_FDD_ENB_ERROR_DUPLICATE_ENTRY,
+    LTE_FDD_ENB_ERROR_READ_ONLY,
     LTE_FDD_ENB_ERROR_N_ITEMS,
 }LTE_FDD_ENB_ERROR_ENUM;
 static const char LTE_fdd_enb_error_text[LTE_FDD_ENB_ERROR_N_ITEMS][100] = {"none",
@@ -112,7 +115,8 @@ static const char LTE_fdd_enb_error_text[LTE_FDD_ENB_ERROR_N_ITEMS][100] = {"non
                                                                             "RB already setup",
                                                                             "timer not found",
                                                                             "cant reassemble SDU",
-                                                                            "duplicate entry"};
+                                                                            "duplicate entry",
+                                                                            "read only"};
 
 typedef enum{
     LTE_FDD_ENB_DEBUG_TYPE_ERROR = 0,
@@ -173,6 +177,8 @@ typedef enum{
     LTE_FDD_ENB_PARAM_FREQ_BAND,
     LTE_FDD_ENB_PARAM_DL_EARFCN,
     LTE_FDD_ENB_PARAM_UL_EARFCN,
+    LTE_FDD_ENB_PARAM_DL_CENTER_FREQ,
+    LTE_FDD_ENB_PARAM_UL_CENTER_FREQ,
     LTE_FDD_ENB_PARAM_N_RB_DL,
     LTE_FDD_ENB_PARAM_N_RB_UL,
     LTE_FDD_ENB_PARAM_DL_BW,
@@ -220,6 +226,8 @@ static const char lte_fdd_enb_param_text[LTE_FDD_ENB_PARAM_N_ITEMS][100] = {"ban
                                                                             "band",
                                                                             "dl_earfcn",
                                                                             "ul_earfcn",
+                                                                            "dl_center_freq",
+                                                                            "ul_center_freq",
                                                                             "n_rb_dl",
                                                                             "n_rb_ul",
                                                                             "dl_bw",
@@ -268,6 +276,7 @@ typedef struct{
     int64                     int64_u_bound;
     bool                      special_bounds;
     bool                      dynamic;
+    bool                      read_only;
 }LTE_FDD_ENB_VAR_STRUCT;
 
 /*******************************************************************************

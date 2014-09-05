@@ -31,6 +31,9 @@
     08/03/2014    Ben Wojtowicz    Added MME procedures/states, RRC NAS support,
                                    RRC transaction id, PDCP sequence numbers,
                                    and RLC transmit variables.
+    09/03/2014    Ben Wojtowicz    Added ability to store the contetion
+                                   resolution identity and fixed an issue with
+                                   t_poll_retransmit.
 
 *******************************************************************************/
 
@@ -112,6 +115,9 @@ LTE_fdd_enb_rb::LTE_fdd_enb_rb(LTE_FDD_ENB_RB_ENUM  _rb,
     rlc_vta              = 0;
     rlc_vtms             = rlc_vta + LIBLTE_RLC_AM_WINDOW_SIZE;
     rlc_vts              = 0;
+
+    // MAC
+    mac_con_res_id = 0;
 
     // Setup the QoS
     avail_qos[0] = (LTE_FDD_ENB_QOS_STRUCT){ 0,   0};
@@ -536,7 +542,10 @@ void LTE_fdd_enb_rb::rlc_start_t_poll_retransmit(void)
     LTE_fdd_enb_timer_mgr *timer_mgr = LTE_fdd_enb_timer_mgr::get_instance();
     LTE_fdd_enb_timer_cb   timer_expiry_cb(&LTE_fdd_enb_timer_cb_wrapper<LTE_fdd_enb_rb, &LTE_fdd_enb_rb::handle_t_poll_retransmit_timer_expiry>, this);
 
-    timer_mgr->start_timer(45, timer_expiry_cb, &t_poll_retransmit_timer_id);
+    if(LTE_FDD_ENB_INVALID_TIMER_ID == t_poll_retransmit_timer_id)
+    {
+        timer_mgr->start_timer(45, timer_expiry_cb, &t_poll_retransmit_timer_id);
+    }
 }
 void LTE_fdd_enb_rb::rlc_stop_t_poll_retransmit(void)
 {
@@ -550,7 +559,12 @@ void LTE_fdd_enb_rb::handle_t_poll_retransmit_timer_expiry(uint32 timer_id)
     LTE_fdd_enb_rlc                                         *rlc  = LTE_fdd_enb_rlc::get_instance();
     std::map<uint16, LIBLTE_RLC_AMD_PDU_STRUCT *>::iterator  iter = rlc_transmission_buffer.find(rlc_vta);
 
-    rlc->handle_retransmit((*iter).second, user, this);
+    t_poll_retransmit_timer_id = LTE_FDD_ENB_INVALID_TIMER_ID;
+
+    if(rlc_transmission_buffer.end() != iter)
+    {
+        rlc->handle_retransmit((*iter).second, user, this);
+    }
 }
 
 /*************/
@@ -590,6 +604,22 @@ void LTE_fdd_enb_rb::handle_ul_sched_timer_expiry(uint32 timer_id)
     {
         start_ul_sched_timer(ul_sched_timer_m_seconds);
     }
+}
+void LTE_fdd_enb_rb::set_con_res_id(uint64 con_res_id)
+{
+    mac_con_res_id = con_res_id;
+}
+uint64 LTE_fdd_enb_rb::get_con_res_id(void)
+{
+    return(mac_con_res_id);
+}
+void LTE_fdd_enb_rb::set_send_con_res_id(bool send_con_res_id)
+{
+    mac_send_con_res_id = send_con_res_id;
+}
+bool LTE_fdd_enb_rb::get_send_con_res_id(void)
+{
+    return(mac_send_con_res_id);
 }
 
 /*****************/

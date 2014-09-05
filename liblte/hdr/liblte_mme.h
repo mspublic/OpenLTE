@@ -26,6 +26,7 @@
     ----------    -------------    --------------------------------------------
     06/15/2014    Ben Wojtowicz    Created file.
     08/03/2014    Ben Wojtowicz    Added more decoding/encoding.
+    09/03/2014    Ben Wojtowicz    Added more decoding/encoding.
 
 *******************************************************************************/
 
@@ -339,7 +340,10 @@ LIBLTE_ERROR_ENUM liblte_mme_unpack_additional_update_type_ie(uint8             
 // Enums
 // Structs
 // Functions
-// FIXME
+LIBLTE_ERROR_ENUM liblte_mme_pack_authentication_failure_parameter_ie(uint8  *auth_fail_param,
+                                                                      uint8 **ie_ptr);
+LIBLTE_ERROR_ENUM liblte_mme_unpack_authentication_failure_parameter_ie(uint8 **ie_ptr,
+                                                                        uint8  *auth_fail_param);
 
 /*********************************************************************
     IE Name: Authentication Parameter AUTN
@@ -393,7 +397,10 @@ LIBLTE_ERROR_ENUM liblte_mme_unpack_authentication_parameter_rand_ie(uint8 **ie_
 // Enums
 // Structs
 // Functions
-// FIXME
+LIBLTE_ERROR_ENUM liblte_mme_pack_authentication_response_parameter_ie(uint8  *res,
+                                                                       uint8 **ie_ptr);
+LIBLTE_ERROR_ENUM liblte_mme_unpack_authentication_response_parameter_ie(uint8 **ie_ptr,
+                                                                         uint8  *res);
 
 /*********************************************************************
     IE Name: Ciphering Key Sequence Number
@@ -728,9 +735,21 @@ LIBLTE_ERROR_ENUM liblte_mme_unpack_identity_type_2_ie(uint8 **ie_ptr,
 *********************************************************************/
 // Defines
 // Enums
+typedef enum{
+    LIBLTE_MME_IMEISV_NOT_REQUESTED = 0,
+    LIBLTE_MME_IMEISV_REQUESTED,
+    LIBLTE_MME_IMEISV_REQUEST_N_ITEMS,
+}LIBLTE_MME_IMEISV_REQUEST_ENUM;
+static const char liblte_mme_imeisv_request_text[LIBLTE_MME_IMEISV_REQUEST_N_ITEMS][20] = {"Not Requested",
+                                                                                           "Requested"};
 // Structs
 // Functions
-// FIXME
+LIBLTE_ERROR_ENUM liblte_mme_pack_imeisv_request_ie(LIBLTE_MME_IMEISV_REQUEST_ENUM   imeisv_req,
+                                                    uint8                            bit_offset,
+                                                    uint8                          **ie_ptr);
+LIBLTE_ERROR_ENUM liblte_mme_unpack_imeisv_request_ie(uint8                          **ie_ptr,
+                                                      uint8                            bit_offset,
+                                                      LIBLTE_MME_IMEISV_REQUEST_ENUM  *imeisv_req);
 
 /*********************************************************************
     IE Name: KSI And Sequence Number
@@ -760,9 +779,35 @@ LIBLTE_ERROR_ENUM liblte_mme_unpack_identity_type_2_ie(uint8 **ie_ptr,
 *********************************************************************/
 // Defines
 // Enums
+typedef enum{
+    LIBLTE_MME_SS_SCREENING_INDICATOR_PHASE_1 = 0,
+    LIBLTE_MME_SS_SCREENING_INDICATOR_PHASE_2,
+    LIBLTE_MME_SS_SCREENING_INDICATOR_RESERVED_1,
+    LIBLTE_MME_SS_SCREENING_INDICATOR_RESERVED_2,
+    LIBLTE_MME_SS_SCREENING_INDICATOR_N_ITEMS,
+}LIBLTE_MME_SS_SCREENING_INDICATOR_ENUM;
+static const char liblte_mme_ss_screening_indicator_text[LIBLTE_MME_SS_SCREENING_INDICATOR_N_ITEMS][20] = {"Phase 1",
+                                                                                                           "Phase 2",
+                                                                                                           "Reserved 1",
+                                                                                                           "Reserved 2"};
 // Structs
 typedef struct{
-    // FIXME
+    LIBLTE_MME_SS_SCREENING_INDICATOR_ENUM ss_screening;
+    bool                                   gea[8];
+    bool                                   sm_cap_ded;
+    bool                                   sm_cap_gprs;
+    bool                                   ucs2;
+    bool                                   solsa;
+    bool                                   revision;
+    bool                                   pfc;
+    bool                                   lcsva;
+    bool                                   ho_g2u_via_iu;
+    bool                                   ho_g2e_via_s1;
+    bool                                   emm_comb;
+    bool                                   isr;
+    bool                                   srvcc;
+    bool                                   epc;
+    bool                                   nf;
 }LIBLTE_MME_MS_NETWORK_CAPABILITY_STRUCT;
 // Functions
 LIBLTE_ERROR_ENUM liblte_mme_pack_ms_network_capability_ie(LIBLTE_MME_MS_NETWORK_CAPABILITY_STRUCT  *ms_network_cap,
@@ -824,9 +869,54 @@ LIBLTE_ERROR_ENUM liblte_mme_unpack_nas_key_set_id_ie(uint8                     
 *********************************************************************/
 // Defines
 // Enums
+typedef enum{
+    LIBLTE_MME_TYPE_OF_INTEGRITY_ALGORITHM_EIA0 = 0,
+    LIBLTE_MME_TYPE_OF_INTEGRITY_ALGORITHM_128_EIA1,
+    LIBLTE_MME_TYPE_OF_INTEGRITY_ALGORITHM_128_EIA2,
+    LIBLTE_MME_TYPE_OF_INTEGRITY_ALGORITHM_EIA3,
+    LIBLTE_MME_TYPE_OF_INTEGRITY_ALGORITHM_EIA4,
+    LIBLTE_MME_TYPE_OF_INTEGRITY_ALGORITHM_EIA5,
+    LIBLTE_MME_TYPE_OF_INTEGRITY_ALGORITHM_EIA6,
+    LIBLTE_MME_TYPE_OF_INTEGRITY_ALGORITHM_EIA7,
+    LIBLTE_MME_TYPE_OF_INTEGRITY_ALGORITHM_N_ITEMS,
+}LIBLTE_MME_TYPE_OF_INTEGRITY_ALGORITHM_ENUM;
+static const char liblte_mme_type_of_integrity_algorithm_text[LIBLTE_MME_TYPE_OF_INTEGRITY_ALGORITHM_N_ITEMS][20] = {"EIA0",
+                                                                                                                     "128-EIA1",
+                                                                                                                     "128-EIA2",
+                                                                                                                     "EIA3",
+                                                                                                                     "EIA4",
+                                                                                                                     "EIA5",
+                                                                                                                     "EIA6",
+                                                                                                                     "EIA7"};
+typedef enum{
+    LIBLTE_MME_TYPE_OF_CIPHERING_ALGORITHM_EEA0 = 0,
+    LIBLTE_MME_TYPE_OF_CIPHERING_ALGORITHM_128_EEA1,
+    LIBLTE_MME_TYPE_OF_CIPHERING_ALGORITHM_128_EEA2,
+    LIBLTE_MME_TYPE_OF_CIPHERING_ALGORITHM_EEA3,
+    LIBLTE_MME_TYPE_OF_CIPHERING_ALGORITHM_EEA4,
+    LIBLTE_MME_TYPE_OF_CIPHERING_ALGORITHM_EEA5,
+    LIBLTE_MME_TYPE_OF_CIPHERING_ALGORITHM_EEA6,
+    LIBLTE_MME_TYPE_OF_CIPHERING_ALGORITHM_EEA7,
+    LIBLTE_MME_TYPE_OF_CIPHERING_ALGORITHM_N_ITEMS,
+}LIBLTE_MME_TYPE_OF_CIPHERING_ALGORITHM_ENUM;
+static const char liblte_mme_type_of_ciphering_algorithm_text[LIBLTE_MME_TYPE_OF_CIPHERING_ALGORITHM_N_ITEMS][20] = {"EEA0",
+                                                                                                                     "128-EEA1",
+                                                                                                                     "128-EEA2",
+                                                                                                                     "EEA3",
+                                                                                                                     "EEA4",
+                                                                                                                     "EEA5",
+                                                                                                                     "EEA6",
+                                                                                                                     "EEA7"};
 // Structs
+typedef struct{
+    LIBLTE_MME_TYPE_OF_CIPHERING_ALGORITHM_ENUM type_of_eea;
+    LIBLTE_MME_TYPE_OF_INTEGRITY_ALGORITHM_ENUM type_of_eia;
+}LIBLTE_MME_NAS_SECURITY_ALGORITHMS_STRUCT;
 // Functions
-// FIXME
+LIBLTE_ERROR_ENUM liblte_mme_pack_nas_security_algorithms_ie(LIBLTE_MME_NAS_SECURITY_ALGORITHMS_STRUCT  *nas_sec_algs,
+                                                             uint8                                     **ie_ptr);
+LIBLTE_ERROR_ENUM liblte_mme_unpack_nas_security_algorithms_ie(uint8                                     **ie_ptr,
+                                                               LIBLTE_MME_NAS_SECURITY_ALGORITHMS_STRUCT  *nas_sec_algs);
 
 /*********************************************************************
     IE Name: Network Name
@@ -854,7 +944,10 @@ LIBLTE_ERROR_ENUM liblte_mme_unpack_nas_key_set_id_ie(uint8                     
 // Enums
 // Structs
 // Functions
-// FIXME
+LIBLTE_ERROR_ENUM liblte_mme_pack_nonce_ie(uint32   nonce,
+                                           uint8  **ie_ptr);
+LIBLTE_ERROR_ENUM liblte_mme_unpack_nonce_ie(uint8  **ie_ptr,
+                                             uint32  *nonce);
 
 /*********************************************************************
     IE Name: Paging Identity
@@ -1022,42 +1115,22 @@ LIBLTE_ERROR_ENUM liblte_mme_unpack_tracking_area_id_ie(uint8                   
 // Enums
 // Structs
 typedef struct{
-    bool eea0;
-    bool eea1;
-    bool eea2;
-    bool eea3;
-    bool eea4;
-    bool eea5;
-    bool eea6;
-    bool eea7;
-    bool eia0;
-    bool eia1;
-    bool eia2;
-    bool eia3;
-    bool eia4;
-    bool eia5;
-    bool eia6;
-    bool eia7;
-    bool uea0;
-    bool uea1;
-    bool uea2;
-    bool uea3;
-    bool uea4;
-    bool uea5;
-    bool uea6;
-    bool uea7;
+    bool eea[8];
+    bool eia[8];
+    bool uea[8];
+    bool uea_present;
     bool ucs2;
-    bool uia1;
-    bool uia2;
-    bool uia3;
-    bool uia4;
-    bool uia5;
-    bool uia6;
-    bool uia7;
+    bool ucs2_present;
+    bool uia[8];
+    bool uia_present;
     bool lpp;
+    bool lpp_present;
     bool lcs;
+    bool lcs_present;
     bool onexsrvcc;
+    bool onexsrvcc_present;
     bool nf;
+    bool nf_present;
 }LIBLTE_MME_UE_NETWORK_CAPABILITY_STRUCT;
 // Functions
 LIBLTE_ERROR_ENUM liblte_mme_pack_ue_network_capability_ie(LIBLTE_MME_UE_NETWORK_CAPABILITY_STRUCT  *ue_network_cap,
@@ -1090,8 +1163,21 @@ LIBLTE_ERROR_ENUM liblte_mme_unpack_ue_network_capability_ie(uint8              
 // Defines
 // Enums
 // Structs
+typedef struct{
+    bool eea[8];
+    bool eia[8];
+    bool uea[8];
+    bool uea_present;
+    bool uia[8];
+    bool uia_present;
+    bool gea[8];
+    bool gea_present;
+}LIBLTE_MME_UE_SECURITY_CAPABILITIES_STRUCT;
 // Functions
-// FIXME
+LIBLTE_ERROR_ENUM liblte_mme_pack_ue_security_capabilities_ie(LIBLTE_MME_UE_SECURITY_CAPABILITIES_STRUCT  *ue_sec_cap,
+                                                              uint8                                      **ie_ptr);
+LIBLTE_ERROR_ENUM liblte_mme_unpack_ue_security_capabilities_ie(uint8                                      **ie_ptr,
+                                                                LIBLTE_MME_UE_SECURITY_CAPABILITIES_STRUCT  *ue_sec_cap);
 
 /*********************************************************************
     IE Name: Emergency Number List
@@ -1807,10 +1893,19 @@ LIBLTE_ERROR_ENUM liblte_mme_unpack_attach_request_msg(LIBLTE_BYTE_MSG_STRUCT   
     Document Reference: 24.301 v10.2.0 Section 8.2.5
 *********************************************************************/
 // Defines
+#define LIBLTE_MME_AUTHENTICATION_FAILURE_PARAMETER_IEI 0x30
 // Enums
 // Structs
+typedef struct{
+    uint8 emm_cause;
+    uint8 auth_fail_param[16];
+    bool  auth_fail_param_present;
+}LIBLTE_MME_AUTHENTICATION_FAILURE_MSG_STRUCT;
 // Functions
-// FIXME
+LIBLTE_ERROR_ENUM liblte_mme_pack_authentication_failure_msg(LIBLTE_MME_AUTHENTICATION_FAILURE_MSG_STRUCT *auth_fail,
+                                                             LIBLTE_BYTE_MSG_STRUCT                       *msg);
+LIBLTE_ERROR_ENUM liblte_mme_unpack_authentication_failure_msg(LIBLTE_BYTE_MSG_STRUCT                       *msg,
+                                                               LIBLTE_MME_AUTHENTICATION_FAILURE_MSG_STRUCT *auth_fail);
 
 /*********************************************************************
     Message Name: Authentication Reject
@@ -1824,8 +1919,13 @@ LIBLTE_ERROR_ENUM liblte_mme_unpack_attach_request_msg(LIBLTE_BYTE_MSG_STRUCT   
 // Defines
 // Enums
 // Structs
+typedef struct{
+}LIBLTE_MME_AUTHENTICATION_REJECT_MSG_STRUCT;
 // Functions
-// FIXME
+LIBLTE_ERROR_ENUM liblte_mme_pack_authentication_reject_msg(LIBLTE_MME_AUTHENTICATION_REJECT_MSG_STRUCT *auth_reject,
+                                                            LIBLTE_BYTE_MSG_STRUCT                      *msg);
+LIBLTE_ERROR_ENUM liblte_mme_unpack_authentication_reject_msg(LIBLTE_BYTE_MSG_STRUCT                      *msg,
+                                                              LIBLTE_MME_AUTHENTICATION_REJECT_MSG_STRUCT *auth_reject);
 
 /*********************************************************************
     Message Name: Authentication Request
@@ -1860,8 +1960,14 @@ LIBLTE_ERROR_ENUM liblte_mme_unpack_authentication_request_msg(LIBLTE_BYTE_MSG_S
 // Defines
 // Enums
 // Structs
+typedef struct{
+    uint8 res[16];
+}LIBLTE_MME_AUTHENTICATION_RESPONSE_MSG_STRUCT;
 // Functions
-// FIXME
+LIBLTE_ERROR_ENUM liblte_mme_pack_authentication_response_msg(LIBLTE_MME_AUTHENTICATION_RESPONSE_MSG_STRUCT *auth_resp,
+                                                              LIBLTE_BYTE_MSG_STRUCT                        *msg);
+LIBLTE_ERROR_ENUM liblte_mme_unpack_authentication_response_msg(LIBLTE_BYTE_MSG_STRUCT                        *msg,
+                                                                LIBLTE_MME_AUTHENTICATION_RESPONSE_MSG_STRUCT *auth_resp);
 
 /*********************************************************************
     Message Name: CS Service Notification
@@ -2047,10 +2153,32 @@ LIBLTE_ERROR_ENUM liblte_mme_unpack_identity_response_msg(LIBLTE_BYTE_MSG_STRUCT
     Document Reference: 24.301 v10.2.0 Section 8.2.20
 *********************************************************************/
 // Defines
+#define LIBLTE_MME_IMEISV_REQUEST_IEI    0xC
+#define LIBLTE_MME_REPLAYED_NONCE_UE_IEI 0x55
+#define LIBLTE_MME_NONCE_MME_IEI         0x56
 // Enums
 // Structs
+typedef struct{
+    LIBLTE_MME_NAS_SECURITY_ALGORITHMS_STRUCT  selected_nas_sec_algs;
+    LIBLTE_MME_NAS_KEY_SET_ID_STRUCT           nas_ksi;
+    LIBLTE_MME_UE_SECURITY_CAPABILITIES_STRUCT ue_security_cap;
+    LIBLTE_MME_IMEISV_REQUEST_ENUM             imeisv_req;
+    uint32                                     nonce_ue;
+    uint32                                     nonce_mme;
+    bool                                       imeisv_req_present;
+    bool                                       nonce_ue_present;
+    bool                                       nonce_mme_present;
+}LIBLTE_MME_SECURITY_MODE_COMMAND_MSG_STRUCT;
 // Functions
-// FIXME
+LIBLTE_ERROR_ENUM liblte_mme_pack_security_mode_command_msg(LIBLTE_MME_SECURITY_MODE_COMMAND_MSG_STRUCT *sec_mode_cmd,
+                                                            uint8                                        sec_hdr_type,
+                                                            uint8                                       *key_256,
+                                                            uint32                                       count,
+                                                            uint8                                        direction,
+                                                            uint8                                        rb_id,
+                                                            LIBLTE_BYTE_MSG_STRUCT                      *msg);
+LIBLTE_ERROR_ENUM liblte_mme_unpack_security_mode_command_msg(LIBLTE_BYTE_MSG_STRUCT                      *msg,
+                                                              LIBLTE_MME_SECURITY_MODE_COMMAND_MSG_STRUCT *sec_mode_cmd);
 
 /*********************************************************************
     Message Name: Security Mode Complete

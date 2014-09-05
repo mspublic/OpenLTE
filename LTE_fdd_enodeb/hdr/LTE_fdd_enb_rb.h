@@ -30,6 +30,8 @@
     08/03/2014    Ben Wojtowicz    Added MME procedures/states, RRC NAS support,
                                    RRC transaction id, PDCP sequence numbers,
                                    and RLC transmit variables.
+    09/03/2014    Ben Wojtowicz    Added more MME states and ability to store
+                                   the contention resolution identity.
 
 *******************************************************************************/
 
@@ -83,12 +85,18 @@ typedef enum{
     LTE_FDD_ENB_MME_STATE_ID_REQUEST_IMSI,
     LTE_FDD_ENB_MME_STATE_REJECT,
     LTE_FDD_ENB_MME_STATE_AUTHENTICATE,
+    LTE_FDD_ENB_MME_STATE_AUTH_REJECTED,
+    LTE_FDD_ENB_MME_STATE_ENABLE_SECURITY,
+    LTE_FDD_ENB_MME_STATE_RELEASE,
     LTE_FDD_ENB_MME_STATE_N_ITEMS,
 }LTE_FDD_ENB_MME_STATE_ENUM;
 static const char LTE_fdd_enb_mme_state_text[LTE_FDD_ENB_MME_STATE_N_ITEMS][100] = {"IDLE",
                                                                                     "ID REQUEST IMSI",
                                                                                     "REJECT",
-                                                                                    "AUTHENTICATE"};
+                                                                                    "AUTHENTICATE",
+                                                                                    "AUTH REJECTED",
+                                                                                    "ENABLE SECURITY",
+                                                                                    "RELEASE"};
 
 typedef enum{
     LTE_FDD_ENB_RRC_PROC_IDLE = 0,
@@ -235,6 +243,10 @@ public:
     LTE_FDD_ENB_MAC_CONFIG_ENUM get_mac_config(void);
     void start_ul_sched_timer(uint32 m_seconds);
     void handle_ul_sched_timer_expiry(uint32 timer_id);
+    void set_con_res_id(uint64 con_res_id);
+    uint64 get_con_res_id(void);
+    void set_send_con_res_id(bool send_con_res_id);
+    bool get_send_con_res_id(void);
 
     // Generic
     void set_qos(LTE_FDD_ENB_QOS_ENUM _qos);
@@ -292,9 +304,11 @@ private:
     boost::mutex                       mac_sdu_queue_mutex;
     std::list<LIBLTE_BIT_MSG_STRUCT *> mac_sdu_queue;
     LTE_FDD_ENB_MAC_CONFIG_ENUM        mac_config;
+    uint64                             mac_con_res_id;
     uint32                             ul_sched_timer_m_seconds;
     uint32                             ul_sched_timer_id;
     uint32                             t_poll_retransmit_timer_id;
+    bool                               mac_send_con_res_id;
 
     // Generic
     void queue_msg(LIBLTE_BIT_MSG_STRUCT *msg, boost::mutex *mutex, std::list<LIBLTE_BIT_MSG_STRUCT *> *queue);

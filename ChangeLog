@@ -123,3 +123,10 @@ v00.15.00     Added make requirement for polarSSL, common, pdcp, and security
               HSS interface support, message parsers/senders and state machines
               for MME, RRC command messages, transmit functionality for PDCP,
               RLC, and RRC, and refactoring of user identities).
+v00.16.00     Added more MME decoding and encoding and security functions for
+              key generation and EIA2 to the LTE library.  Added authentication,
+              security mode, and sequence number resynch support to MME/HSS,
+              added read only parameters for UL EARFCN, DL center frequency, and
+              UL center frequency, fixed bugs with stop and t_poll_retransmit,
+              and combined the contention resolution identity and first DL RLC
+              message in LTE_fdd_enodeb.
