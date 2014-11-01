@@ -30,6 +30,7 @@
     05/04/2014    Ben Wojtowicz    Added C-RNTI timeout timers.
     06/15/2014    Ben Wojtowicz    Deleting user on C-RNTI expiration.
     08/03/2014    Ben Wojtowicz    Refactored add_user.
+    11/01/2014    Ben Wojtowicz    Added M-TMSI assignment.
 
 *******************************************************************************/
 
@@ -93,6 +94,7 @@ void LTE_fdd_enb_user_mgr::cleanup(void)
 /********************************/
 LTE_fdd_enb_user_mgr::LTE_fdd_enb_user_mgr()
 {
+    next_m_tmsi = 1;
     next_c_rnti = LIBLTE_MAC_C_RNTI_START;
 }
 LTE_fdd_enb_user_mgr::~LTE_fdd_enb_user_mgr()
@@ -158,6 +160,10 @@ LTE_FDD_ENB_ERROR_ENUM LTE_fdd_enb_user_mgr::free_c_rnti(uint16 c_rnti)
     }
 
     return(err);
+}
+uint32 LTE_fdd_enb_user_mgr::get_next_m_tmsi(void)
+{
+    return(next_m_tmsi++);
 }
 LTE_FDD_ENB_ERROR_ENUM LTE_fdd_enb_user_mgr::add_user(uint16 c_rnti)
 {
@@ -238,6 +244,11 @@ LTE_FDD_ENB_ERROR_ENUM LTE_fdd_enb_user_mgr::find_user(uint16             c_rnti
     }
 
     return(err);
+}
+LTE_FDD_ENB_ERROR_ENUM LTE_fdd_enb_user_mgr::find_user(LIBLTE_MME_EPS_MOBILE_ID_GUTI_STRUCT  *guti,
+                                                       LTE_fdd_enb_user                     **user)
+{
+    return(LTE_FDD_ENB_ERROR_USER_NOT_FOUND);
 }
 LTE_FDD_ENB_ERROR_ENUM LTE_fdd_enb_user_mgr::del_user(std::string imsi)
 {

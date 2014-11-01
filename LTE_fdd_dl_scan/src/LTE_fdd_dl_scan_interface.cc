@@ -27,6 +27,7 @@
     02/26/2013    Ben Wojtowicz    Created file
     07/21/2013    Ben Wojtowicz    Added support for decoding SIBs.
     06/15/2014    Ben Wojtowicz    Added PCAP support.
+    11/01/2014    Ben Wojtowicz    Using the latest LTE library.
 
 *******************************************************************************/
 
@@ -329,8 +330,8 @@ void LTE_fdd_dl_scan_interface::send_ctrl_sib1_decoded_msg(LTE_FDD_DL_SCAN_CHAN_
                 tmp_msg += "duplex_mode=fdd ";
             }else{
                 tmp_msg += "duplex_mode=tdd ";
-                tmp_msg += "subfr_assignment=" + boost::lexical_cast<std::string>(liblte_rrc_subframe_assignment_text[sib1->sf_assignment]) + " ";
-                tmp_msg += "special_subfr_patterns=" + boost::lexical_cast<std::string>(liblte_rrc_special_subframe_patterns_text[sib1->special_sf_patterns]) + " ";
+                tmp_msg += "subfr_assignment=" + boost::lexical_cast<std::string>(liblte_rrc_subframe_assignment_text[sib1->tdd_cnfg.sf_assignment]) + " ";
+                tmp_msg += "special_subfr_patterns=" + boost::lexical_cast<std::string>(liblte_rrc_special_subframe_patterns_text[sib1->tdd_cnfg.special_sf_patterns]) + " ";
             }
             tmp_msg += "si_value_tag=" + boost::lexical_cast<std::string>((uint32)sib1->system_info_value_tag) + " ";
 

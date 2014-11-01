@@ -30,6 +30,7 @@
     05/04/2014    Ben Wojtowicz    Added communication to RLC and RRC.
     06/15/2014    Ben Wojtowicz    Added simple header parsing.
     08/03/2014    Ben Wojtowicz    Added transmit functionality.
+    11/01/2014    Ben Wojtowicz    Added SRB2 and security support.
 
 *******************************************************************************/
 
@@ -41,6 +42,7 @@
 #include "LTE_fdd_enb_rlc.h"
 #include "LTE_fdd_enb_interface.h"
 #include "liblte_pdcp.h"
+#include "liblte_security.h"
 
 /*******************************************************************************
                               DEFINES
@@ -256,6 +258,22 @@ void LTE_fdd_enb_pdcp::handle_pdu_ready(LTE_FDD_ENB_PDCP_PDU_READY_MSG_STRUCT *p
                                    LTE_FDD_ENB_DEST_LAYER_RRC,
                                    (LTE_FDD_ENB_MESSAGE_UNION *)&rrc_pdu_ready,
                                    sizeof(LTE_FDD_ENB_RRC_PDU_READY_MSG_STRUCT));
+        }else if(LTE_FDD_ENB_RB_SRB2 == pdu_ready->rb->get_rb_id()){
+            liblte_pdcp_unpack_control_pdu(pdu, &contents);
+
+            // FIXME: Verify SN
+
+            // Queue the SDU for RRC
+            pdu_ready->rb->queue_rrc_pdu(&contents.data);
+
+            // Signal RRC
+            rrc_pdu_ready.user = pdu_ready->user;
+            rrc_pdu_ready.rb   = pdu_ready->rb;
+            LTE_fdd_enb_msgq::send(pdcp_rrc_mq,
+                                   LTE_FDD_ENB_MESSAGE_TYPE_RRC_PDU_READY,
+                                   LTE_FDD_ENB_DEST_LAYER_RRC,
+                                   (LTE_FDD_ENB_MESSAGE_UNION *)&rrc_pdu_ready,
+                                   sizeof(LTE_FDD_ENB_RRC_PDU_READY_MSG_STRUCT));
         }else{
             interface->send_debug_msg(LTE_FDD_ENB_DEBUG_TYPE_ERROR,
                                       LTE_FDD_ENB_DEBUG_LEVEL_PDCP,
@@ -307,6 +325,15 @@ void LTE_fdd_enb_pdcp::handle_sdu_ready(LTE_FDD_ENB_PDCP_SDU_READY_MSG_STRUCT *s
                 sdu->N_bits += 8 - (sdu->N_bits % 8);
             }
 
+            interface->send_debug_msg(LTE_FDD_ENB_DEBUG_TYPE_INFO,
+                                      LTE_FDD_ENB_DEBUG_LEVEL_PDCP,
+                                      __FILE__,
+                                      __LINE__,
+                                      sdu,
+                                      "Sending PDU for RNTI=%u and RB=%s",
+                                      sdu_ready->user->get_c_rnti(),
+                                      LTE_fdd_enb_rb_text[sdu_ready->rb->get_rb_id()]);
+
             // Queue the PDU for RLC
             sdu_ready->rb->queue_rlc_sdu(sdu);
 
@@ -321,13 +348,35 @@ void LTE_fdd_enb_pdcp::handle_sdu_ready(LTE_FDD_ENB_PDCP_SDU_READY_MSG_STRUCT *s
 
             // Delete the SDU
             sdu_ready->rb->delete_next_pdcp_sdu();
-        }else if(LTE_FDD_ENB_RB_SRB1 == sdu_ready->rb->get_rb_id()){
+        }else if(LTE_FDD_ENB_RB_SRB1 == sdu_ready->rb->get_rb_id() ||
+                 LTE_FDD_ENB_RB_SRB2 == sdu_ready->rb->get_rb_id()){
             // Pack the control PDU
-            contents.sn = sdu_ready->rb->get_pdcp_tx_sn();
-            liblte_pdcp_pack_control_pdu(&contents, sdu, &pdu);
+            contents.count = sdu_ready->rb->get_pdcp_tx_count();
+            if(LTE_FDD_ENB_PDCP_CONFIG_SECURITY == sdu_ready->rb->get_pdcp_config())
+            {
+                liblte_pdcp_pack_control_pdu(&contents,
+                                             sdu,
+                                             sdu_ready->user->get_auth_vec()->k_rrc_int,
+                                             LIBLTE_SECURITY_DIRECTION_DOWNLINK,
+                                             sdu_ready->rb->get_rb_id()-1,
+                                             &pdu);
+            }else{
+                liblte_pdcp_pack_control_pdu(&contents,
+                                             sdu,
+                                             &pdu);
+            }
 
             // Increment the SN
-            sdu_ready->rb->set_pdcp_tx_sn(contents.sn + 1);
+            sdu_ready->rb->set_pdcp_tx_count(contents.count + 1);
+
+            interface->send_debug_msg(LTE_FDD_ENB_DEBUG_TYPE_INFO,
+                                      LTE_FDD_ENB_DEBUG_LEVEL_PDCP,
+                                      __FILE__,
+                                      __LINE__,
+                                      &pdu,
+                                      "Sending PDU for RNTI=%u and RB=%s",
+                                      sdu_ready->user->get_c_rnti(),
+                                      LTE_fdd_enb_rb_text[sdu_ready->rb->get_rb_id()]);
 
             // Queue the PDU for RLC
             sdu_ready->rb->queue_rlc_sdu(&pdu);

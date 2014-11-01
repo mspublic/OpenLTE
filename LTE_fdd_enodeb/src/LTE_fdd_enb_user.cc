@@ -31,6 +31,7 @@
     08/03/2014    Ben Wojtowicz    Refactored user identities.
     09/03/2014    Ben Wojtowicz    Added ciphering and integrity algorithm
                                    storing.
+    11/01/2014    Ben Wojtowicz    Added more MME support.
 
 *******************************************************************************/
 
@@ -39,6 +40,7 @@
 *******************************************************************************/
 
 #include "LTE_fdd_enb_user.h"
+#include "liblte_mme.h"
 #include <boost/lexical_cast.hpp>
 
 /*******************************************************************************
@@ -68,10 +70,14 @@ LTE_fdd_enb_user::LTE_fdd_enb_user(uint16 _c_rnti)
     uint32 i;
 
     // Identity
-    id_set       = false;
-    temp_id      = 0;
-    c_rnti       = _c_rnti;
-    c_rnti_set   = true;
+    id_set      = false;
+    guti_set    = false;
+    temp_id     = 0;
+    c_rnti      = _c_rnti;
+    c_rnti_set  = true;
+    ip_addr_set = false;
+
+    // Security
     auth_vec_set = false;
 
     // Capabilities
@@ -95,6 +101,15 @@ LTE_fdd_enb_user::LTE_fdd_enb_user(uint16 _c_rnti)
     {
         drb[i] = NULL;
     }
+
+    // MME
+    emm_cause                 = LIBLTE_MME_EMM_CAUSE_IMSI_UNKNOWN_IN_HSS;
+    attach_type               = 0;
+    pdn_type                  = 0;
+    eps_bearer_id             = 0;
+    proc_transaction_id       = 0;
+    eit_flag                  = false;
+    protocol_cnfg_opts.N_opts = 0;
 
     // MAC
     dl_ndi = false;
@@ -136,6 +151,14 @@ void LTE_fdd_enb_user::init(void)
     srb0->set_rrc_procedure(LTE_FDD_ENB_RRC_PROC_IDLE);
     srb0->set_rrc_state(LTE_FDD_ENB_RRC_STATE_IDLE);
 
+    // MME
+    emm_cause                 = LIBLTE_MME_EMM_CAUSE_ROAMING_NOT_ALLOWED_IN_THIS_TRACKING_AREA;
+    attach_type               = 0;
+    pdn_type                  = 0;
+    eps_bearer_id             = 0;
+    proc_transaction_id       = 0;
+    protocol_cnfg_opts.N_opts = 0;
+
     // MAC
     dl_ndi = false;
     ul_ndi = false;
@@ -156,6 +179,19 @@ LTE_FDD_ENB_USER_ID_STRUCT* LTE_fdd_enb_user::get_id(void)
 bool LTE_fdd_enb_user::is_id_set(void)
 {
     return(id_set);
+}
+void LTE_fdd_enb_user::set_guti(LIBLTE_MME_EPS_MOBILE_ID_GUTI_STRUCT *_guti)
+{
+    memcpy(&guti, _guti, sizeof(LIBLTE_MME_EPS_MOBILE_ID_GUTI_STRUCT));
+    guti_set = true;
+}
+LIBLTE_MME_EPS_MOBILE_ID_GUTI_STRUCT* LTE_fdd_enb_user::get_guti(void)
+{
+    return(&guti);
+}
+bool LTE_fdd_enb_user::is_guti_set(void)
+{
+    return(guti_set);
 }
 void LTE_fdd_enb_user::set_temp_id(uint64 id)
 {
@@ -194,6 +230,23 @@ bool LTE_fdd_enb_user::is_c_rnti_set(void)
 {
     return(c_rnti_set);
 }
+void LTE_fdd_enb_user::set_ip_addr(uint32 addr)
+{
+    ip_addr     = addr;
+    ip_addr_set = true;
+}
+uint32 LTE_fdd_enb_user::get_ip_addr(void)
+{
+    return(ip_addr);
+}
+bool LTE_fdd_enb_user::is_ip_addr_set(void)
+{
+    return(ip_addr_set);
+}
+
+/******************/
+/*    Security    */
+/******************/
 void LTE_fdd_enb_user::set_auth_vec(LTE_FDD_ENB_AUTHENTICATION_VECTOR_STRUCT *av)
 {
     memcpy(&auth_vec, av, sizeof(LTE_FDD_ENB_AUTHENTICATION_VECTOR_STRUCT));
@@ -366,6 +419,66 @@ LTE_FDD_ENB_ERROR_ENUM LTE_fdd_enb_user::get_srb2(LTE_fdd_enb_rb **rb)
     *rb = srb2;
 
     return(err);
+}
+
+/*************/
+/*    MME    */
+/*************/
+void LTE_fdd_enb_user::set_emm_cause(uint8 cause)
+{
+    emm_cause = cause;
+}
+uint8 LTE_fdd_enb_user::get_emm_cause(void)
+{
+    return(emm_cause);
+}
+void LTE_fdd_enb_user::set_attach_type(uint8 type)
+{
+    attach_type = type;
+}
+uint8 LTE_fdd_enb_user::get_attach_type(void)
+{
+    return(attach_type);
+}
+void LTE_fdd_enb_user::set_pdn_type(uint8 type)
+{
+    pdn_type = type;
+}
+uint8 LTE_fdd_enb_user::get_pdn_type(void)
+{
+    return(pdn_type);
+}
+void LTE_fdd_enb_user::set_eps_bearer_id(uint8 id)
+{
+    eps_bearer_id = id;
+}
+uint8 LTE_fdd_enb_user::get_eps_bearer_id(void)
+{
+    return(eps_bearer_id);
+}
+void LTE_fdd_enb_user::set_proc_transaction_id(uint8 id)
+{
+    proc_transaction_id = id;
+}
+uint8 LTE_fdd_enb_user::get_proc_transaction_id(void)
+{
+    return(proc_transaction_id);
+}
+void LTE_fdd_enb_user::set_esm_info_transfer(bool eit)
+{
+    eit_flag = eit;
+}
+bool LTE_fdd_enb_user::get_esm_info_transfer(void)
+{
+    return(eit_flag);
+}
+void LTE_fdd_enb_user::set_protocol_cnfg_opts(LIBLTE_MME_PROTOCOL_CONFIG_OPTIONS_STRUCT *pco)
+{
+    memcpy(&protocol_cnfg_opts, pco, sizeof(LIBLTE_MME_PROTOCOL_CONFIG_OPTIONS_STRUCT));
+}
+LIBLTE_MME_PROTOCOL_CONFIG_OPTIONS_STRUCT* LTE_fdd_enb_user::get_protocol_cnfg_opts(void)
+{
+    return(&protocol_cnfg_opts);
 }
 
 /*************/

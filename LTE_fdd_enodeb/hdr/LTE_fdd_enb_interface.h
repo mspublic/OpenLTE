@@ -37,6 +37,8 @@
     08/03/2014    Ben Wojtowicz    Added HSS support.
     09/03/2014    Ben Wojtowicz    Added read only parameters for UL EARFCN,
                                    DL center frequency and UL center frequency.
+    11/01/2014    Ben Wojtowicz    Added parameters for IP address assignment,
+                                   DNS address, config file, and user file.
 
 *******************************************************************************/
 
@@ -125,10 +127,10 @@ typedef enum{
     LTE_FDD_ENB_DEBUG_TYPE_DEBUG,
     LTE_FDD_ENB_DEBUG_TYPE_N_ITEMS,
 }LTE_FDD_ENB_DEBUG_TYPE_ENUM;
-static const char LTE_fdd_enb_debug_type_text[LTE_FDD_ENB_DEBUG_TYPE_N_ITEMS][100] = {"error  ",
+static const char LTE_fdd_enb_debug_type_text[LTE_FDD_ENB_DEBUG_TYPE_N_ITEMS][100] = {"error",
                                                                                       "warning",
-                                                                                      "info   ",
-                                                                                      "debug  "};
+                                                                                      "info",
+                                                                                      "debug"};
 
 typedef enum{
     LTE_FDD_ENB_DEBUG_LEVEL_RADIO = 0,
@@ -145,14 +147,14 @@ typedef enum{
     LTE_FDD_ENB_DEBUG_LEVEL_N_ITEMS,
 }LTE_FDD_ENB_DEBUG_LEVEL_ENUM;
 static const char LTE_fdd_enb_debug_level_text[LTE_FDD_ENB_DEBUG_LEVEL_N_ITEMS][100] = {"radio",
-                                                                                        "phy  ",
-                                                                                        "mac  ",
-                                                                                        "rlc  ",
-                                                                                        "pdcp ",
-                                                                                        "rrc  ",
-                                                                                        "mme  ",
-                                                                                        "user ",
-                                                                                        "rb   ",
+                                                                                        "phy",
+                                                                                        "mac",
+                                                                                        "rlc",
+                                                                                        "pdcp",
+                                                                                        "rrc",
+                                                                                        "mme",
+                                                                                        "user",
+                                                                                        "rb",
                                                                                         "timer",
                                                                                         "iface"};
 
@@ -211,6 +213,10 @@ typedef enum{
     LTE_FDD_ENB_PARAM_DEBUG_TYPE,
     LTE_FDD_ENB_PARAM_DEBUG_LEVEL,
     LTE_FDD_ENB_PARAM_ENABLE_PCAP,
+    LTE_FDD_ENB_PARAM_IP_ADDR_START,
+    LTE_FDD_ENB_PARAM_DNS_ADDR,
+    LTE_FDD_ENB_PARAM_USE_CNFG_FILE,
+    LTE_FDD_ENB_PARAM_USE_USER_FILE,
 
     // Radio parameters managed by LTE_fdd_enb_radio
     LTE_FDD_ENB_PARAM_AVAILABLE_RADIOS,
@@ -222,7 +228,7 @@ typedef enum{
 
     LTE_FDD_ENB_PARAM_N_ITEMS,
 }LTE_FDD_ENB_PARAM_ENUM;
-static const char lte_fdd_enb_param_text[LTE_FDD_ENB_PARAM_N_ITEMS][100] = {"bandwidth",
+static const char LTE_fdd_enb_param_text[LTE_FDD_ENB_PARAM_N_ITEMS][100] = {"bandwidth",
                                                                             "band",
                                                                             "dl_earfcn",
                                                                             "ul_earfcn",
@@ -260,6 +266,10 @@ static const char lte_fdd_enb_param_text[LTE_FDD_ENB_PARAM_N_ITEMS][100] = {"ban
                                                                             "debug_type",
                                                                             "debug_level",
                                                                             "enable_pcap",
+                                                                            "ip_addr_start",
+                                                                            "dns_addr",
+                                                                            "use_cnfg_file",
+                                                                            "use_user_file",
                                                                             "available_radios",
                                                                             "selected_radio_name",
                                                                             "selected_radio_idx",
@@ -320,6 +330,10 @@ public:
     static bool           ctrl_connected;
     static bool           debug_connected;
 
+    // Handlers
+    LTE_FDD_ENB_ERROR_ENUM handle_write(std::string msg);
+    void handle_add_user(std::string msg);
+
     // Get/Set
     bool get_shutdown(void);
     bool app_is_started(void);
@@ -332,11 +346,9 @@ private:
 
     // Handlers
     void handle_read(std::string msg);
-    void handle_write(std::string msg);
     void handle_start(void);
     void handle_stop(void);
     void handle_help(void);
-    void handle_add_user(std::string msg);
     void handle_del_user(std::string msg);
     void handle_print_users(void);
 

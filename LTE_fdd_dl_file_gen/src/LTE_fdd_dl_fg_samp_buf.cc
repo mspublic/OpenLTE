@@ -47,6 +47,7 @@
     03/26/2014    Ben Wojtowicz    Using the latest LTE library.
     04/12/2014    Ben Wojtowicz    Using the latest LTE library.
     05/04/2014    Ben Wojtowicz    Added PHICH support.
+    11/01/2014    Ben Wojtowicz    Using the latest LTE library.
 
 *******************************************************************************/
 
@@ -138,8 +139,8 @@ LTE_fdd_dl_fg_samp_buf::LTE_fdd_dl_fg_samp_buf(size_t out_size_val)
     sib1.intra_freq_reselection           = LIBLTE_RRC_INTRA_FREQ_RESELECTION_ALLOWED;
     sib1.si_window_length                 = LIBLTE_RRC_SI_WINDOW_LENGTH_MS2;
     si_win_len                            = 2;
-    sib1.sf_assignment                    = LIBLTE_RRC_SUBFRAME_ASSIGNMENT_0;
-    sib1.special_sf_patterns              = LIBLTE_RRC_SPECIAL_SUBFRAME_PATTERNS_0;
+    sib1.tdd_cnfg.sf_assignment           = LIBLTE_RRC_SUBFRAME_ASSIGNMENT_0;
+    sib1.tdd_cnfg.special_sf_patterns     = LIBLTE_RRC_SPECIAL_SUBFRAME_PATTERNS_0;
     sib1.cell_id                          = 0;
     sib1.csg_id                           = 0;
     sib1.tracking_area_code               = 0;

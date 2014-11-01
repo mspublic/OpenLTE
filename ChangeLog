@@ -130,3 +130,8 @@ v00.16.00     Added more MME decoding and encoding and security functions for
               UL center frequency, fixed bugs with stop and t_poll_retransmit,
               and combined the contention resolution identity and first DL RLC
               message in LTE_fdd_enodeb.
+v00.17.00     Added more MME and RRC decoding and encoding and integrity protection
+              of PDCP control messages in the LTE library.  Added configuration
+              and user file support, PDCP security, RRC security mode command,
+              SRB2 setup, RRC connection reconfiguration, MME EMM attach, MME
+              ESM default bearer setup, and M-TMSI assignment to LTE_fdd_enodeb.

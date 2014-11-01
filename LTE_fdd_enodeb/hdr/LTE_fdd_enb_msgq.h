@@ -31,6 +31,8 @@
                                    communication.
     06/15/2014    Ben Wojtowicz    Added MME<->RRC messages.
     08/03/2014    Ben Wojtowicz    Added RRC command messages.
+    11/01/2014    Ben Wojtowicz    Added RRC security command, RRC SRB2 setup
+                                   command, and RRC command response messages.
 
 *******************************************************************************/
 
@@ -100,6 +102,7 @@ typedef enum{
 
     // RRC -> MME Messages
     LTE_FDD_ENB_MESSAGE_TYPE_MME_NAS_MSG_READY,
+    LTE_FDD_ENB_MESSAGE_TYPE_MME_RRC_CMD_RESP,
 
     LTE_FDD_ENB_MESSAGE_TYPE_N_ITEMS,
 }LTE_FDD_ENB_MESSAGE_TYPE_ENUM;
@@ -118,7 +121,8 @@ static const char LTE_fdd_enb_message_type_text[LTE_FDD_ENB_MESSAGE_TYPE_N_ITEMS
                                                                                           "RRC pdu ready",
                                                                                           "RRC NAS message ready",
                                                                                           "RRC command ready",
-                                                                                          "MME NAS message ready"};
+                                                                                          "MME NAS message ready",
+                                                                                          "MME RRC command response"};
 
 typedef enum{
     LTE_FDD_ENB_DEST_LAYER_PHY = 0,
@@ -219,9 +223,13 @@ typedef struct{
 }LTE_FDD_ENB_RRC_NAS_MSG_READY_MSG_STRUCT;
 typedef enum{
     LTE_FDD_ENB_RRC_CMD_RELEASE = 0,
+    LTE_FDD_ENB_RRC_CMD_SECURITY,
+    LTE_FDD_ENB_RRC_CMD_SETUP_SRB2,
     LTE_FDD_ENB_RRC_CMD_N_ITEMS,
 }LTE_FDD_ENB_RRC_CMD_ENUM;
-static const char LTE_fdd_enb_rrc_cmd_text[LTE_FDD_ENB_RRC_CMD_N_ITEMS][20] = {"Release"};
+static const char LTE_fdd_enb_rrc_cmd_text[LTE_FDD_ENB_RRC_CMD_N_ITEMS][20] = {"Release",
+                                                                               "Security",
+                                                                               "Setup SRB2"};
 typedef struct{
     LTE_fdd_enb_user         *user;
     LTE_fdd_enb_rb           *rb;
@@ -233,6 +241,16 @@ typedef struct{
     LTE_fdd_enb_user *user;
     LTE_fdd_enb_rb   *rb;
 }LTE_FDD_ENB_MME_NAS_MSG_READY_MSG_STRUCT;
+typedef enum{
+    LTE_FDD_ENB_MME_RRC_CMD_RESP_SECURITY = 0,
+    LTE_FDD_ENB_MME_RRC_CMD_RESP_N_ITEMS,
+}LTE_FDD_ENB_MME_RRC_CMD_RESP_ENUM;
+static const char LTE_fdd_enb_mme_rrc_cmd_resp_text[LTE_FDD_ENB_MME_RRC_CMD_RESP_N_ITEMS][20] = {"Security"};
+typedef struct{
+    LTE_fdd_enb_user                  *user;
+    LTE_fdd_enb_rb                    *rb;
+    LTE_FDD_ENB_MME_RRC_CMD_RESP_ENUM  cmd_resp;
+}LTE_FDD_ENB_MME_RRC_CMD_RESP_MSG_STRUCT;
 
 typedef union{
     // Generic Messages
@@ -271,6 +289,7 @@ typedef union{
 
     // RRC -> MME Messages
     LTE_FDD_ENB_MME_NAS_MSG_READY_MSG_STRUCT mme_nas_msg_ready;
+    LTE_FDD_ENB_MME_RRC_CMD_RESP_MSG_STRUCT  mme_rrc_cmd_resp;
 }LTE_FDD_ENB_MESSAGE_UNION;
 
 typedef struct{

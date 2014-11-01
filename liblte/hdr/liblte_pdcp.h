@@ -25,6 +25,7 @@
     Revision History
     ----------    -------------    --------------------------------------------
     08/03/2014    Ben Wojtowicz    Created file.
+    11/01/2014    Ben Wojtowicz    Added integrity protection of messages.
 
 *******************************************************************************/
 
@@ -124,13 +125,24 @@ static const char liblte_pdcp_d_c_text[LIBLTE_PDCP_D_C_N_ITEMS][20] = {"Control 
 // Structs
 typedef struct{
     LIBLTE_BIT_MSG_STRUCT data;
-    uint8                 sn;
+    uint32                count;
 }LIBLTE_PDCP_CONTROL_PDU_STRUCT;
 // Functions
 LIBLTE_ERROR_ENUM liblte_pdcp_pack_control_pdu(LIBLTE_PDCP_CONTROL_PDU_STRUCT *pdu_contents,
                                                LIBLTE_BIT_MSG_STRUCT          *pdu);
 LIBLTE_ERROR_ENUM liblte_pdcp_pack_control_pdu(LIBLTE_PDCP_CONTROL_PDU_STRUCT *pdu_contents,
                                                LIBLTE_BIT_MSG_STRUCT          *data,
+                                               LIBLTE_BIT_MSG_STRUCT          *pdu);
+LIBLTE_ERROR_ENUM liblte_pdcp_pack_control_pdu(LIBLTE_PDCP_CONTROL_PDU_STRUCT *pdu_contents,
+                                               uint8                          *key_256,
+                                               uint8                           direction,
+                                               uint8                           rb_id,
+                                               LIBLTE_BIT_MSG_STRUCT          *pdu);
+LIBLTE_ERROR_ENUM liblte_pdcp_pack_control_pdu(LIBLTE_PDCP_CONTROL_PDU_STRUCT *pdu_contents,
+                                               LIBLTE_BIT_MSG_STRUCT          *data,
+                                               uint8                          *key_256,
+                                               uint8                           direction,
+                                               uint8                           rb_id,
                                                LIBLTE_BIT_MSG_STRUCT          *pdu);
 LIBLTE_ERROR_ENUM liblte_pdcp_unpack_control_pdu(LIBLTE_BIT_MSG_STRUCT          *pdu,
                                                  LIBLTE_PDCP_CONTROL_PDU_STRUCT *pdu_contents);

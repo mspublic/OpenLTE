@@ -31,6 +31,7 @@
     06/15/2014    Ben Wojtowicz    Added basic AM receive functionality.
     08/03/2014    Ben Wojtowicz    Added transmit functionality.
     09/03/2014    Ben Wojtowicz    Added debug print and status request.
+    11/01/2014    Ben Wojtowicz    Fixed VRR updating and added debug.
 
 *******************************************************************************/
 
@@ -384,8 +385,8 @@ void LTE_fdd_enb_rlc::handle_am_pdu(LIBLTE_BIT_MSG_STRUCT *pdu,
             // Update VR(R)/VR(MR) and reassemble
             if(amd.hdr.sn == vrr)
             {
+                rb->update_rlc_vrr();
                 // FIXME: Handle AMD PDU Segments
-                rb->set_rlc_vrr(amd.hdr.sn + 1);
 
                 if(LTE_FDD_ENB_ERROR_NONE == rb->rlc_reassemble(&pdcp_pdu))
                 {
@@ -509,7 +510,17 @@ void LTE_fdd_enb_rlc::handle_tm_sdu(LIBLTE_BIT_MSG_STRUCT *sdu,
                                     LTE_fdd_enb_user      *user,
                                     LTE_fdd_enb_rb        *rb)
 {
-    LTE_FDD_ENB_MAC_SDU_READY_MSG_STRUCT mac_sdu_ready;
+    LTE_fdd_enb_interface                *interface = LTE_fdd_enb_interface::get_instance();
+    LTE_FDD_ENB_MAC_SDU_READY_MSG_STRUCT  mac_sdu_ready;
+
+    interface->send_debug_msg(LTE_FDD_ENB_DEBUG_TYPE_INFO,
+                              LTE_FDD_ENB_DEBUG_LEVEL_RLC,
+                              __FILE__,
+                              __LINE__,
+                              sdu,
+                              "Sending TMD PDU for RNTI=%u, RB=%s",
+                              user->get_c_rnti(),
+                              LTE_fdd_enb_rb_text[rb->get_rb_id()]);
 
     // Queue the SDU for MAC
     rb->queue_mac_sdu(sdu);

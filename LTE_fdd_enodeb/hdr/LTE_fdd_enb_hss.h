@@ -27,6 +27,7 @@
     06/15/2014    Ben Wojtowicz    Created file
     08/03/2014    Ben Wojtowicz    Added authentication vector support.
     09/03/2014    Ben Wojtowicz    Added sequence number resynch.
+    11/01/2014    Ben Wojtowicz    Added user file support.
 
 *******************************************************************************/
 
@@ -71,8 +72,6 @@ typedef struct{
     uint8                                    mac[8];
     uint8                                    k_asme[32];
     uint8                                    k_enb[32];
-    uint8                                    k_rrc_enc[32];
-    uint8                                    k_rrc_int[32];
     uint8                                    k_up_enc[32];
     uint8                                    k_up_int[32];
     uint8                                    ind_he;
@@ -107,6 +106,10 @@ public:
     void security_resynch(LTE_FDD_ENB_USER_ID_STRUCT *id, uint16 mcc, uint16 mnc, uint8 *auts);
     LTE_FDD_ENB_AUTHENTICATION_VECTOR_STRUCT* get_auth_vec(LTE_FDD_ENB_USER_ID_STRUCT *id);
 
+    // User File
+    void set_use_user_file(bool uuf);
+    void read_user_file(void);
+
 private:
     // Singleton
     static LTE_fdd_enb_hss *instance;
@@ -116,6 +119,11 @@ private:
     // Allowed users
     boost::mutex                             user_mutex;
     std::list<LTE_FDD_ENB_HSS_USER_STRUCT *> user_list;
+
+    // User File
+    void write_user_file(void);
+    void delete_user_file(void);
+    bool use_user_file;
 };
 
 #endif /* __LTE_FDD_ENB_HSS_H__ */

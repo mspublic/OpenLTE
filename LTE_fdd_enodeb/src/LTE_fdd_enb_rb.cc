@@ -34,6 +34,7 @@
     09/03/2014    Ben Wojtowicz    Added ability to store the contetion
                                    resolution identity and fixed an issue with
                                    t_poll_retransmit.
+    11/01/2014    Ben Wojtowicz    Added SRB2 support and PDCP security.
 
 *******************************************************************************/
 
@@ -95,14 +96,22 @@ LTE_fdd_enb_rb::LTE_fdd_enb_rb(LTE_FDD_ENB_RB_ENUM  _rb,
         pdcp_config   = LTE_FDD_ENB_PDCP_CONFIG_N_A;
         rlc_config    = LTE_FDD_ENB_RLC_CONFIG_AM;
         mac_config    = LTE_FDD_ENB_MAC_CONFIG_TM;
+    }else if(LTE_FDD_ENB_RB_SRB2 == rb){
+        mme_procedure = LTE_FDD_ENB_MME_PROC_IDLE;
+        mme_state     = LTE_FDD_ENB_MME_STATE_IDLE;
+        rrc_procedure = LTE_FDD_ENB_RRC_PROC_IDLE;
+        rrc_state     = LTE_FDD_ENB_RRC_STATE_IDLE;
+        pdcp_config   = LTE_FDD_ENB_PDCP_CONFIG_N_A;
+        rlc_config    = LTE_FDD_ENB_RLC_CONFIG_AM;
+        mac_config    = LTE_FDD_ENB_MAC_CONFIG_TM;
     }
 
     // RRC
     rrc_transaction_id = 0;
 
     // PDCP
-    pdcp_rx_sn = 0;
-    pdcp_tx_sn = 0;
+    pdcp_rx_count = 0;
+    pdcp_tx_count = 0;
 
     // RLC
     rlc_reception_buffer.clear();
@@ -296,25 +305,29 @@ LTE_FDD_ENB_ERROR_ENUM LTE_fdd_enb_rb::delete_next_pdcp_sdu(void)
 {
     return(delete_next_msg(&pdcp_sdu_queue_mutex, &pdcp_sdu_queue));
 }
+void LTE_fdd_enb_rb::set_pdcp_config(LTE_FDD_ENB_PDCP_CONFIG_ENUM config)
+{
+    pdcp_config = config;
+}
 LTE_FDD_ENB_PDCP_CONFIG_ENUM LTE_fdd_enb_rb::get_pdcp_config(void)
 {
     return(pdcp_config);
 }
-uint16 LTE_fdd_enb_rb::get_pdcp_rx_sn(void)
+uint32 LTE_fdd_enb_rb::get_pdcp_rx_count(void)
 {
-    return(pdcp_rx_sn);
+    return(pdcp_rx_count);
 }
-void LTE_fdd_enb_rb::set_pdcp_rx_sn(uint16 rx_sn)
+void LTE_fdd_enb_rb::set_pdcp_rx_count(uint32 rx_count)
 {
-    pdcp_rx_sn = rx_sn;
+    pdcp_rx_count = rx_count;
 }
-uint16 LTE_fdd_enb_rb::get_pdcp_tx_sn(void)
+uint32 LTE_fdd_enb_rb::get_pdcp_tx_count(void)
 {
-    return(pdcp_tx_sn);
+    return(pdcp_tx_count);
 }
-void LTE_fdd_enb_rb::set_pdcp_tx_sn(uint16 tx_sn)
+void LTE_fdd_enb_rb::set_pdcp_tx_count(uint32 tx_count)
 {
-    pdcp_tx_sn = tx_sn;
+    pdcp_tx_count = tx_count;
 }
 
 /*************/
@@ -356,6 +369,21 @@ void LTE_fdd_enb_rb::set_rlc_vrr(uint16 vrr)
 {
     rlc_vrr  = vrr;
     rlc_vrmr = rlc_vrr + LIBLTE_RLC_AM_WINDOW_SIZE;
+}
+void LTE_fdd_enb_rb::update_rlc_vrr(void)
+{
+    std::map<uint16, LIBLTE_BIT_MSG_STRUCT *>::iterator iter;
+    uint32                                              i;
+    uint16                                              vrr = rlc_vrr;
+
+    for(i=vrr; i<rlc_vrh; i++)
+    {
+        iter = rlc_reception_buffer.find(i);
+        if(rlc_reception_buffer.end() != iter)
+        {
+            rlc_vrr = i+1;
+        }
+    }
 }
 uint16 LTE_fdd_enb_rb::get_rlc_vrmr(void)
 {
@@ -594,6 +622,12 @@ void LTE_fdd_enb_rb::start_ul_sched_timer(uint32 m_seconds)
     ul_sched_timer_m_seconds = m_seconds;
     timer_mgr->start_timer(ul_sched_timer_m_seconds, timer_expiry_cb, &ul_sched_timer_id);
 }
+void LTE_fdd_enb_rb::stop_ul_sched_timer(void)
+{
+    LTE_fdd_enb_timer_mgr *timer_mgr = LTE_fdd_enb_timer_mgr::get_instance();
+
+    timer_mgr->stop_timer(ul_sched_timer_id);
+}
 void LTE_fdd_enb_rb::handle_ul_sched_timer_expiry(uint32 timer_id)
 {
     LTE_fdd_enb_mac *mac = LTE_fdd_enb_mac::get_instance();
@@ -719,6 +753,8 @@ void LTE_fdd_enb_rb::set_qos(LTE_FDD_ENB_QOS_ENUM _qos)
     if(qos != LTE_FDD_ENB_QOS_NONE)
     {
         start_ul_sched_timer(avail_qos[qos].tti_frequency-1);
+    }else{
+        stop_ul_sched_timer();
     }
 }
 LTE_FDD_ENB_QOS_ENUM LTE_fdd_enb_rb::get_qos(void)

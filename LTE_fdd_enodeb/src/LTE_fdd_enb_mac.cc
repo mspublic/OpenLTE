@@ -39,6 +39,7 @@
     08/03/2014    Ben Wojtowicz    Removed debug message.
     09/03/2014    Ben Wojtowicz    Combined the contention resolution ID and
                                    the first downlink RLC message.
+    11/01/2014    Ben Wojtowicz    Added NDI toggling.
 
 *******************************************************************************/
 
@@ -263,7 +264,8 @@ void LTE_fdd_enb_mac::sched_ul(LTE_fdd_enb_user *user,
     alloc.tx_mode        = 1;
     alloc.rnti           = user->get_c_rnti();
     alloc.tpc            = LIBLTE_PHY_TPC_COMMAND_DCI_0_3_4_DB_NEG_1;
-    alloc.ndi            = false; // FIXME
+    alloc.ndi            = user->get_ul_ndi();
+    user->flip_ul_ndi();
     sys_info_mutex.lock();
     liblte_phy_get_tbs_mcs_and_n_prb_for_ul(requested_tbs,
                                             sys_info.N_rb_ul,
@@ -509,9 +511,10 @@ void LTE_fdd_enb_mac::handle_sdu_ready(LTE_FDD_ENB_MAC_SDU_READY_MSG_STRUCT *sdu
         alloc.rnti = user->get_c_rnti();
         alloc.mcs  = 0;
         alloc.tpc  = LIBLTE_PHY_TPC_COMMAND_DCI_1_1A_1B_1D_2_3_DB_ZERO;
-        alloc.ndi  = false;
+        alloc.ndi  = user->get_dl_ndi();
+        user->flip_dl_ndi();
 
-        // Pack the SDU
+        // Pack the PDU
         mac_pdu.chan_type = LIBLTE_MAC_CHAN_TYPE_DLSCH;
         if(sdu_ready->rb->get_send_con_res_id())
         {
@@ -530,7 +533,7 @@ void LTE_fdd_enb_mac::handle_sdu_ready(LTE_FDD_ENB_MAC_SDU_READY_MSG_STRUCT *sdu
         // Determine the current_tti
         current_tti = (sched_dl_subfr[sched_cur_dl_subfn].current_tti + 4) % (LTE_FDD_ENB_CURRENT_TTI_MAX + 1);
 
-        // Add the SDU to the scheduling queue
+        // Add the PDU to the scheduling queue
         if(LTE_FDD_ENB_ERROR_NONE != add_to_dl_sched_queue(current_tti,
                                                            &mac_pdu,
                                                            &alloc))
@@ -539,14 +542,14 @@ void LTE_fdd_enb_mac::handle_sdu_ready(LTE_FDD_ENB_MAC_SDU_READY_MSG_STRUCT *sdu
                                       LTE_FDD_ENB_DEBUG_LEVEL_MAC,
                                       __FILE__,
                                       __LINE__,
-                                      "Can't schedule SDU");
+                                      "Can't schedule PDU");
         }else{
             interface->send_debug_msg(LTE_FDD_ENB_DEBUG_TYPE_INFO,
                                       LTE_FDD_ENB_DEBUG_LEVEL_MAC,
                                       __FILE__,
                                       __LINE__,
                                       &alloc.msg,
-                                      "SDU scheduled for RNTI=%u, DL_QUEUE_SIZE=%u",
+                                      "PDU scheduled for RNTI=%u, DL_QUEUE_SIZE=%u",
                                       alloc.rnti,
                                       dl_sched_queue.size());
         }

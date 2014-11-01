@@ -32,6 +32,7 @@
                                    and RLC transmit variables.
     09/03/2014    Ben Wojtowicz    Added more MME states and ability to store
                                    the contention resolution identity.
+    11/01/2014    Ben Wojtowicz    Added more MME states and PDCP security.
 
 *******************************************************************************/
 
@@ -88,6 +89,10 @@ typedef enum{
     LTE_FDD_ENB_MME_STATE_AUTH_REJECTED,
     LTE_FDD_ENB_MME_STATE_ENABLE_SECURITY,
     LTE_FDD_ENB_MME_STATE_RELEASE,
+    LTE_FDD_ENB_MME_STATE_RRC_SECURITY,
+    LTE_FDD_ENB_MME_STATE_ESM_INFO_TRANSFER,
+    LTE_FDD_ENB_MME_STATE_ATTACH_ACCEPT,
+    LTE_FDD_ENB_MME_STATE_ATTACHED,
     LTE_FDD_ENB_MME_STATE_N_ITEMS,
 }LTE_FDD_ENB_MME_STATE_ENUM;
 static const char LTE_fdd_enb_mme_state_text[LTE_FDD_ENB_MME_STATE_N_ITEMS][100] = {"IDLE",
@@ -96,7 +101,11 @@ static const char LTE_fdd_enb_mme_state_text[LTE_FDD_ENB_MME_STATE_N_ITEMS][100]
                                                                                     "AUTHENTICATE",
                                                                                     "AUTH REJECTED",
                                                                                     "ENABLE SECURITY",
-                                                                                    "RELEASE"};
+                                                                                    "RELEASE",
+                                                                                    "RRC SECURITY",
+                                                                                    "ESM INFO TRANSFER",
+                                                                                    "ATTACH ACCEPT",
+                                                                                    "ATTACHED"};
 
 typedef enum{
     LTE_FDD_ENB_RRC_PROC_IDLE = 0,
@@ -122,9 +131,11 @@ static const char LTE_fdd_enb_rrc_state_text[LTE_FDD_ENB_RRC_STATE_N_ITEMS][100]
 
 typedef enum{
     LTE_FDD_ENB_PDCP_CONFIG_N_A = 0,
+    LTE_FDD_ENB_PDCP_CONFIG_SECURITY,
     LTE_FDD_ENB_PDCP_CONFIG_N_ITEMS,
 }LTE_FDD_ENB_PDCP_CONFIG_ENUM;
-static const char LTE_fdd_enb_pdcp_config_text[LTE_FDD_ENB_PDCP_CONFIG_N_ITEMS][20] = {"N/A"};
+static const char LTE_fdd_enb_pdcp_config_text[LTE_FDD_ENB_PDCP_CONFIG_N_ITEMS][20] = {"N/A",
+                                                                                       "SECURITY"};
 
 typedef enum{
     LTE_FDD_ENB_RLC_CONFIG_TM = 0,
@@ -203,11 +214,12 @@ public:
     void queue_pdcp_sdu(LIBLTE_BIT_MSG_STRUCT *sdu);
     LTE_FDD_ENB_ERROR_ENUM get_next_pdcp_sdu(LIBLTE_BIT_MSG_STRUCT **sdu);
     LTE_FDD_ENB_ERROR_ENUM delete_next_pdcp_sdu(void);
+    void set_pdcp_config(LTE_FDD_ENB_PDCP_CONFIG_ENUM config);
     LTE_FDD_ENB_PDCP_CONFIG_ENUM get_pdcp_config(void);
-    uint16 get_pdcp_rx_sn(void);
-    void set_pdcp_rx_sn(uint16 rx_sn);
-    uint16 get_pdcp_tx_sn(void);
-    void set_pdcp_tx_sn(uint16 tx_sn);
+    uint32 get_pdcp_rx_count(void);
+    void set_pdcp_rx_count(uint32 rx_count);
+    uint32 get_pdcp_tx_count(void);
+    void set_pdcp_tx_count(uint32 tx_count);
 
     // RLC
     void queue_rlc_pdu(LIBLTE_BIT_MSG_STRUCT *pdu);
@@ -219,6 +231,7 @@ public:
     LTE_FDD_ENB_RLC_CONFIG_ENUM get_rlc_config(void);
     uint16 get_rlc_vrr(void);
     void set_rlc_vrr(uint16 vrr);
+    void update_rlc_vrr(void);
     uint16 get_rlc_vrmr(void);
     uint16 get_rlc_vrh(void);
     void set_rlc_vrh(uint16 vrh);
@@ -242,6 +255,7 @@ public:
     LTE_FDD_ENB_ERROR_ENUM delete_next_mac_sdu(void);
     LTE_FDD_ENB_MAC_CONFIG_ENUM get_mac_config(void);
     void start_ul_sched_timer(uint32 m_seconds);
+    void stop_ul_sched_timer(void);
     void handle_ul_sched_timer_expiry(uint32 timer_id);
     void set_con_res_id(uint64 con_res_id);
     uint64 get_con_res_id(void);
@@ -280,8 +294,8 @@ private:
     std::list<LIBLTE_BIT_MSG_STRUCT *> pdcp_pdu_queue;
     std::list<LIBLTE_BIT_MSG_STRUCT *> pdcp_sdu_queue;
     LTE_FDD_ENB_PDCP_CONFIG_ENUM       pdcp_config;
-    uint16                             pdcp_rx_sn;
-    uint16                             pdcp_tx_sn;
+    uint32                             pdcp_rx_count;
+    uint32                             pdcp_tx_count;
 
     // RLC
     boost::mutex                                  rlc_pdu_queue_mutex;

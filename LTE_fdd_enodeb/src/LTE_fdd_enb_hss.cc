@@ -29,6 +29,7 @@
     08/03/2014    Ben Wojtowicz    Added authentication vector support.
     09/03/2014    Ben Wojtowicz    Added sequence number resynch and key
                                    generation.
+    11/01/2014    Ben Wojtowicz    Added user file support.
 
 *******************************************************************************/
 
@@ -37,6 +38,7 @@
 *******************************************************************************/
 
 #include "LTE_fdd_enb_hss.h"
+#include "LTE_fdd_enb_cnfg_db.h"
 #include "liblte_security.h"
 #include <boost/lexical_cast.hpp>
 
@@ -92,6 +94,7 @@ void LTE_fdd_enb_hss::cleanup(void)
 LTE_fdd_enb_hss::LTE_fdd_enb_hss()
 {
     user_list.clear();
+    use_user_file = false;
 }
 LTE_fdd_enb_hss::~LTE_fdd_enb_hss()
 {
@@ -173,6 +176,11 @@ LTE_FDD_ENB_ERROR_ENUM LTE_fdd_enb_hss::add_user(std::string imsi,
             delete new_user;
         }
         user_mutex.unlock();
+
+        if(use_user_file)
+        {
+            write_user_file();
+        }
     }
 
     return(err);
@@ -193,6 +201,12 @@ LTE_FDD_ENB_ERROR_ENUM LTE_fdd_enb_hss::del_user(std::string imsi)
             delete user;
             err = LTE_FDD_ENB_ERROR_NONE;
             break;
+        }
+        user_mutex.unlock();
+
+        if(use_user_file)
+        {
+            write_user_file();
         }
     }
 
@@ -342,7 +356,6 @@ void LTE_fdd_enb_hss::generate_security_data(LTE_FDD_ENB_USER_ID_STRUCT *id,
                                         sqn,
                                         amf,
                                         (*iter)->generated_data.mac);
-
             liblte_security_milenage_f2345((*iter)->stored_data.k,
                                            (*iter)->generated_data.auth_vec.rand,
                                            (*iter)->generated_data.auth_vec.res,
@@ -379,7 +392,6 @@ void LTE_fdd_enb_hss::generate_security_data(LTE_FDD_ENB_USER_ID_STRUCT *id,
                                             (*iter)->generated_data.k_asme);
 
             // Generate K_nas_enc and K_nas_int
-            // FIXME: Dynamic picking of algorithms
             liblte_security_generate_k_nas((*iter)->generated_data.k_asme,
                                            LIBLTE_SECURITY_CIPHERING_ALGORITHM_ID_EEA0,
                                            LIBLTE_SECURITY_INTEGRITY_ALGORITHM_ID_128_EIA2,
@@ -395,8 +407,8 @@ void LTE_fdd_enb_hss::generate_security_data(LTE_FDD_ENB_USER_ID_STRUCT *id,
             liblte_security_generate_k_rrc((*iter)->generated_data.k_enb,
                                            LIBLTE_SECURITY_CIPHERING_ALGORITHM_ID_EEA0,
                                            LIBLTE_SECURITY_INTEGRITY_ALGORITHM_ID_128_EIA2,
-                                           (*iter)->generated_data.k_rrc_enc,
-                                           (*iter)->generated_data.k_rrc_int);
+                                           (*iter)->generated_data.auth_vec.k_rrc_enc,
+                                           (*iter)->generated_data.auth_vec.k_rrc_int);
 
             // Generate K_up_enc and K_up_int
             liblte_security_generate_k_up((*iter)->generated_data.k_enb,
@@ -463,4 +475,69 @@ LTE_FDD_ENB_AUTHENTICATION_VECTOR_STRUCT* LTE_fdd_enb_hss::get_auth_vec(LTE_FDD_
     }
 
     return(auth_vec);
+}
+
+/*******************/
+/*    User File    */
+/*******************/
+void LTE_fdd_enb_hss::set_use_user_file(bool uuf)
+{
+    use_user_file = uuf;
+
+    if(use_user_file)
+    {
+        write_user_file();
+    }else{
+        delete_user_file();
+    }
+}
+void LTE_fdd_enb_hss::read_user_file(void)
+{
+    LTE_fdd_enb_interface *interface = LTE_fdd_enb_interface::get_instance();
+    LTE_fdd_enb_cnfg_db   *cnfg_db   = LTE_fdd_enb_cnfg_db::get_instance();
+    std::string            line_str;
+    FILE                  *user_file = NULL;
+    int64                  uuf       = 1;
+    char                   str[LTE_FDD_ENB_MAX_LINE_SIZE];
+
+    user_file = fopen("/tmp/LTE_fdd_enodeb.user_db", "r");
+
+    if(NULL != user_file)
+    {
+        while(NULL != fgets(str, LTE_FDD_ENB_MAX_LINE_SIZE, user_file))
+        {
+            line_str = str;
+            interface->handle_add_user(line_str.substr(0, line_str.length()-1));
+        }
+        fclose(user_file);
+        use_user_file = true;
+        cnfg_db->set_param(LTE_FDD_ENB_PARAM_USE_USER_FILE, uuf);
+    }
+}
+void LTE_fdd_enb_hss::write_user_file(void)
+{
+    boost::mutex::scoped_lock                           lock(user_mutex);
+    std::list<LTE_FDD_ENB_HSS_USER_STRUCT *>::iterator  iter;
+    FILE                                               *user_file = NULL;
+    uint32                                              i;
+
+    user_file = fopen("/tmp/LTE_fdd_enodeb.user_db", "w");
+
+    if(NULL != user_file)
+    {
+        for(iter=user_list.begin(); iter!=user_list.end(); iter++)
+        {
+            fprintf(user_file, "imsi=%015llu imei=%015llu k=", (*iter)->id.imsi, (*iter)->id.imei);
+            for(i=0; i<16; i++)
+            {
+                fprintf(user_file, "%02X", (*iter)->stored_data.k[i]);
+            }
+            fprintf(user_file, "\n");
+        }
+        fclose(user_file);
+    }
+}
+void LTE_fdd_enb_hss::delete_user_file(void)
+{
+    remove("/tmp/LTE_fdd_enodeb.user_db");
 }

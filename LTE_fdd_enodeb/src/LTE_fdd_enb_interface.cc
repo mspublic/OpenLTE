@@ -38,6 +38,8 @@
     08/03/2014    Ben Wojtowicz    Added HSS support.
     09/03/2014    Ben Wojtowicz    Added read only parameters for UL EARFCN,
                                    DL center frequency and UL center frequency.
+    11/01/2014    Ben Wojtowicz    Added parameters for IP address assignment,
+                                   DNS address, config file, and user file.
 
 *******************************************************************************/
 
@@ -127,32 +129,36 @@ LTE_fdd_enb_interface::LTE_fdd_enb_interface()
     debug_connected = false;
 
     // Variables
-    var_map[lte_fdd_enb_param_text[LTE_FDD_ENB_PARAM_BANDWIDTH]]          = (LTE_FDD_ENB_VAR_STRUCT){LTE_FDD_ENB_VAR_TYPE_DOUBLE, LTE_FDD_ENB_PARAM_BANDWIDTH, 0, 0, 0, 0, true, false, false};
-    var_map[lte_fdd_enb_param_text[LTE_FDD_ENB_PARAM_FREQ_BAND]]          = (LTE_FDD_ENB_VAR_STRUCT){LTE_FDD_ENB_VAR_TYPE_INT64, LTE_FDD_ENB_PARAM_FREQ_BAND, 0, 0, 0, 0, true, true, false};
-    var_map[lte_fdd_enb_param_text[LTE_FDD_ENB_PARAM_DL_EARFCN]]          = (LTE_FDD_ENB_VAR_STRUCT){LTE_FDD_ENB_VAR_TYPE_INT64, LTE_FDD_ENB_PARAM_DL_EARFCN, 0, 0, 0, 0, true, true, false};
-    var_map[lte_fdd_enb_param_text[LTE_FDD_ENB_PARAM_UL_EARFCN]]          = (LTE_FDD_ENB_VAR_STRUCT){LTE_FDD_ENB_VAR_TYPE_INT64, LTE_FDD_ENB_PARAM_UL_EARFCN, 0, 0, 0, 0, false, false, true};
-    var_map[lte_fdd_enb_param_text[LTE_FDD_ENB_PARAM_DL_CENTER_FREQ]]     = (LTE_FDD_ENB_VAR_STRUCT){LTE_FDD_ENB_VAR_TYPE_INT64, LTE_FDD_ENB_PARAM_DL_CENTER_FREQ, 0, 0, 0, 0, false, false, true};
-    var_map[lte_fdd_enb_param_text[LTE_FDD_ENB_PARAM_UL_CENTER_FREQ]]     = (LTE_FDD_ENB_VAR_STRUCT){LTE_FDD_ENB_VAR_TYPE_INT64, LTE_FDD_ENB_PARAM_UL_CENTER_FREQ, 0, 0, 0, 0, false, false, true};
-    var_map[lte_fdd_enb_param_text[LTE_FDD_ENB_PARAM_N_ANT]]              = (LTE_FDD_ENB_VAR_STRUCT){LTE_FDD_ENB_VAR_TYPE_INT64, LTE_FDD_ENB_PARAM_N_ANT, 0, 0, 0, 0, true, false, false};
-    var_map[lte_fdd_enb_param_text[LTE_FDD_ENB_PARAM_N_ID_CELL]]          = (LTE_FDD_ENB_VAR_STRUCT){LTE_FDD_ENB_VAR_TYPE_INT64, LTE_FDD_ENB_PARAM_N_ID_CELL, 0, 0, 0, 503, false, false, false};
-    var_map[lte_fdd_enb_param_text[LTE_FDD_ENB_PARAM_MCC]]                = (LTE_FDD_ENB_VAR_STRUCT){LTE_FDD_ENB_VAR_TYPE_HEX, LTE_FDD_ENB_PARAM_MCC, 0, 0, 0, 0, true, true, false};
-    var_map[lte_fdd_enb_param_text[LTE_FDD_ENB_PARAM_MNC]]                = (LTE_FDD_ENB_VAR_STRUCT){LTE_FDD_ENB_VAR_TYPE_HEX, LTE_FDD_ENB_PARAM_MNC, 0, 0, 0, 0, true, true, false};
-    var_map[lte_fdd_enb_param_text[LTE_FDD_ENB_PARAM_CELL_ID]]            = (LTE_FDD_ENB_VAR_STRUCT){LTE_FDD_ENB_VAR_TYPE_INT64, LTE_FDD_ENB_PARAM_CELL_ID, 0, 0, 0, 268435455, false, true, false};
-    var_map[lte_fdd_enb_param_text[LTE_FDD_ENB_PARAM_TRACKING_AREA_CODE]] = (LTE_FDD_ENB_VAR_STRUCT){LTE_FDD_ENB_VAR_TYPE_INT64, LTE_FDD_ENB_PARAM_TRACKING_AREA_CODE, 0, 0, 0, 65535, false, true, false};
-    var_map[lte_fdd_enb_param_text[LTE_FDD_ENB_PARAM_Q_RX_LEV_MIN]]       = (LTE_FDD_ENB_VAR_STRUCT){LTE_FDD_ENB_VAR_TYPE_INT64, LTE_FDD_ENB_PARAM_Q_RX_LEV_MIN, 0, 0, -140, -44, false, true, false};
-    var_map[lte_fdd_enb_param_text[LTE_FDD_ENB_PARAM_P0_NOMINAL_PUSCH]]   = (LTE_FDD_ENB_VAR_STRUCT){LTE_FDD_ENB_VAR_TYPE_INT64, LTE_FDD_ENB_PARAM_P0_NOMINAL_PUSCH, 0, 0, -126, 24, false, true, false};
-    var_map[lte_fdd_enb_param_text[LTE_FDD_ENB_PARAM_P0_NOMINAL_PUCCH]]   = (LTE_FDD_ENB_VAR_STRUCT){LTE_FDD_ENB_VAR_TYPE_INT64, LTE_FDD_ENB_PARAM_P0_NOMINAL_PUCCH, 0, 0, -127, -96, false, true, false};
-    var_map[lte_fdd_enb_param_text[LTE_FDD_ENB_PARAM_SIB3_PRESENT]]       = (LTE_FDD_ENB_VAR_STRUCT){LTE_FDD_ENB_VAR_TYPE_INT64, LTE_FDD_ENB_PARAM_SIB3_PRESENT, 0, 0, 0, 1, false, true, false};
-    var_map[lte_fdd_enb_param_text[LTE_FDD_ENB_PARAM_Q_HYST]]             = (LTE_FDD_ENB_VAR_STRUCT){LTE_FDD_ENB_VAR_TYPE_INT64, LTE_FDD_ENB_PARAM_Q_HYST, 0, 0, 0, 0, true, true, false};
-    var_map[lte_fdd_enb_param_text[LTE_FDD_ENB_PARAM_SIB4_PRESENT]]       = (LTE_FDD_ENB_VAR_STRUCT){LTE_FDD_ENB_VAR_TYPE_INT64, LTE_FDD_ENB_PARAM_SIB4_PRESENT, 0, 0, 0, 1, false, true, false};
-    var_map[lte_fdd_enb_param_text[LTE_FDD_ENB_PARAM_SIB5_PRESENT]]       = (LTE_FDD_ENB_VAR_STRUCT){LTE_FDD_ENB_VAR_TYPE_INT64, LTE_FDD_ENB_PARAM_SIB5_PRESENT, 0, 0, 0, 1, false, true, false};
-    var_map[lte_fdd_enb_param_text[LTE_FDD_ENB_PARAM_SIB6_PRESENT]]       = (LTE_FDD_ENB_VAR_STRUCT){LTE_FDD_ENB_VAR_TYPE_INT64, LTE_FDD_ENB_PARAM_SIB6_PRESENT, 0, 0, 0, 1, false, true, false};
-    var_map[lte_fdd_enb_param_text[LTE_FDD_ENB_PARAM_SIB7_PRESENT]]       = (LTE_FDD_ENB_VAR_STRUCT){LTE_FDD_ENB_VAR_TYPE_INT64, LTE_FDD_ENB_PARAM_SIB7_PRESENT, 0, 0, 0, 1, false, true, false};
-    var_map[lte_fdd_enb_param_text[LTE_FDD_ENB_PARAM_SIB8_PRESENT]]       = (LTE_FDD_ENB_VAR_STRUCT){LTE_FDD_ENB_VAR_TYPE_INT64, LTE_FDD_ENB_PARAM_SIB8_PRESENT, 0, 0, 0, 1, false, true, false};
-    var_map[lte_fdd_enb_param_text[LTE_FDD_ENB_PARAM_SEARCH_WIN_SIZE]]    = (LTE_FDD_ENB_VAR_STRUCT){LTE_FDD_ENB_VAR_TYPE_INT64, LTE_FDD_ENB_PARAM_SEARCH_WIN_SIZE, 0, 0, 0, 15, false, true, false};
-    var_map[lte_fdd_enb_param_text[LTE_FDD_ENB_PARAM_DEBUG_TYPE]]         = (LTE_FDD_ENB_VAR_STRUCT){LTE_FDD_ENB_VAR_TYPE_UINT32, LTE_FDD_ENB_PARAM_DEBUG_TYPE, 0, 0, 0, 0, true, true, false};
-    var_map[lte_fdd_enb_param_text[LTE_FDD_ENB_PARAM_DEBUG_LEVEL]]        = (LTE_FDD_ENB_VAR_STRUCT){LTE_FDD_ENB_VAR_TYPE_UINT32, LTE_FDD_ENB_PARAM_DEBUG_LEVEL, 0, 0, 0, 0, true, true, false};
-    var_map[lte_fdd_enb_param_text[LTE_FDD_ENB_PARAM_ENABLE_PCAP]]        = (LTE_FDD_ENB_VAR_STRUCT){LTE_FDD_ENB_VAR_TYPE_INT64, LTE_FDD_ENB_PARAM_ENABLE_PCAP, 0, 0, 0, 1, false, true, false};
+    var_map[LTE_fdd_enb_param_text[LTE_FDD_ENB_PARAM_BANDWIDTH]]          = (LTE_FDD_ENB_VAR_STRUCT){LTE_FDD_ENB_VAR_TYPE_DOUBLE, LTE_FDD_ENB_PARAM_BANDWIDTH, 0, 0, 0, 0, true, false, false};
+    var_map[LTE_fdd_enb_param_text[LTE_FDD_ENB_PARAM_FREQ_BAND]]          = (LTE_FDD_ENB_VAR_STRUCT){LTE_FDD_ENB_VAR_TYPE_INT64, LTE_FDD_ENB_PARAM_FREQ_BAND, 0, 0, 0, 0, true, true, false};
+    var_map[LTE_fdd_enb_param_text[LTE_FDD_ENB_PARAM_DL_EARFCN]]          = (LTE_FDD_ENB_VAR_STRUCT){LTE_FDD_ENB_VAR_TYPE_INT64, LTE_FDD_ENB_PARAM_DL_EARFCN, 0, 0, 0, 0, true, true, false};
+    var_map[LTE_fdd_enb_param_text[LTE_FDD_ENB_PARAM_UL_EARFCN]]          = (LTE_FDD_ENB_VAR_STRUCT){LTE_FDD_ENB_VAR_TYPE_INT64, LTE_FDD_ENB_PARAM_UL_EARFCN, 0, 0, 0, 0, false, false, true};
+    var_map[LTE_fdd_enb_param_text[LTE_FDD_ENB_PARAM_DL_CENTER_FREQ]]     = (LTE_FDD_ENB_VAR_STRUCT){LTE_FDD_ENB_VAR_TYPE_INT64, LTE_FDD_ENB_PARAM_DL_CENTER_FREQ, 0, 0, 0, 0, false, false, true};
+    var_map[LTE_fdd_enb_param_text[LTE_FDD_ENB_PARAM_UL_CENTER_FREQ]]     = (LTE_FDD_ENB_VAR_STRUCT){LTE_FDD_ENB_VAR_TYPE_INT64, LTE_FDD_ENB_PARAM_UL_CENTER_FREQ, 0, 0, 0, 0, false, false, true};
+    var_map[LTE_fdd_enb_param_text[LTE_FDD_ENB_PARAM_N_ANT]]              = (LTE_FDD_ENB_VAR_STRUCT){LTE_FDD_ENB_VAR_TYPE_INT64, LTE_FDD_ENB_PARAM_N_ANT, 0, 0, 0, 0, true, false, false};
+    var_map[LTE_fdd_enb_param_text[LTE_FDD_ENB_PARAM_N_ID_CELL]]          = (LTE_FDD_ENB_VAR_STRUCT){LTE_FDD_ENB_VAR_TYPE_INT64, LTE_FDD_ENB_PARAM_N_ID_CELL, 0, 0, 0, 503, false, false, false};
+    var_map[LTE_fdd_enb_param_text[LTE_FDD_ENB_PARAM_MCC]]                = (LTE_FDD_ENB_VAR_STRUCT){LTE_FDD_ENB_VAR_TYPE_HEX, LTE_FDD_ENB_PARAM_MCC, 0, 0, 0, 0, true, true, false};
+    var_map[LTE_fdd_enb_param_text[LTE_FDD_ENB_PARAM_MNC]]                = (LTE_FDD_ENB_VAR_STRUCT){LTE_FDD_ENB_VAR_TYPE_HEX, LTE_FDD_ENB_PARAM_MNC, 0, 0, 0, 0, true, true, false};
+    var_map[LTE_fdd_enb_param_text[LTE_FDD_ENB_PARAM_CELL_ID]]            = (LTE_FDD_ENB_VAR_STRUCT){LTE_FDD_ENB_VAR_TYPE_INT64, LTE_FDD_ENB_PARAM_CELL_ID, 0, 0, 0, 268435455, false, true, false};
+    var_map[LTE_fdd_enb_param_text[LTE_FDD_ENB_PARAM_TRACKING_AREA_CODE]] = (LTE_FDD_ENB_VAR_STRUCT){LTE_FDD_ENB_VAR_TYPE_INT64, LTE_FDD_ENB_PARAM_TRACKING_AREA_CODE, 0, 0, 0, 65535, false, true, false};
+    var_map[LTE_fdd_enb_param_text[LTE_FDD_ENB_PARAM_Q_RX_LEV_MIN]]       = (LTE_FDD_ENB_VAR_STRUCT){LTE_FDD_ENB_VAR_TYPE_INT64, LTE_FDD_ENB_PARAM_Q_RX_LEV_MIN, 0, 0, -140, -44, false, true, false};
+    var_map[LTE_fdd_enb_param_text[LTE_FDD_ENB_PARAM_P0_NOMINAL_PUSCH]]   = (LTE_FDD_ENB_VAR_STRUCT){LTE_FDD_ENB_VAR_TYPE_INT64, LTE_FDD_ENB_PARAM_P0_NOMINAL_PUSCH, 0, 0, -126, 24, false, true, false};
+    var_map[LTE_fdd_enb_param_text[LTE_FDD_ENB_PARAM_P0_NOMINAL_PUCCH]]   = (LTE_FDD_ENB_VAR_STRUCT){LTE_FDD_ENB_VAR_TYPE_INT64, LTE_FDD_ENB_PARAM_P0_NOMINAL_PUCCH, 0, 0, -127, -96, false, true, false};
+    var_map[LTE_fdd_enb_param_text[LTE_FDD_ENB_PARAM_SIB3_PRESENT]]       = (LTE_FDD_ENB_VAR_STRUCT){LTE_FDD_ENB_VAR_TYPE_INT64, LTE_FDD_ENB_PARAM_SIB3_PRESENT, 0, 0, 0, 1, false, true, false};
+    var_map[LTE_fdd_enb_param_text[LTE_FDD_ENB_PARAM_Q_HYST]]             = (LTE_FDD_ENB_VAR_STRUCT){LTE_FDD_ENB_VAR_TYPE_INT64, LTE_FDD_ENB_PARAM_Q_HYST, 0, 0, 0, 0, true, true, false};
+    var_map[LTE_fdd_enb_param_text[LTE_FDD_ENB_PARAM_SIB4_PRESENT]]       = (LTE_FDD_ENB_VAR_STRUCT){LTE_FDD_ENB_VAR_TYPE_INT64, LTE_FDD_ENB_PARAM_SIB4_PRESENT, 0, 0, 0, 1, false, true, false};
+    var_map[LTE_fdd_enb_param_text[LTE_FDD_ENB_PARAM_SIB5_PRESENT]]       = (LTE_FDD_ENB_VAR_STRUCT){LTE_FDD_ENB_VAR_TYPE_INT64, LTE_FDD_ENB_PARAM_SIB5_PRESENT, 0, 0, 0, 1, false, true, false};
+    var_map[LTE_fdd_enb_param_text[LTE_FDD_ENB_PARAM_SIB6_PRESENT]]       = (LTE_FDD_ENB_VAR_STRUCT){LTE_FDD_ENB_VAR_TYPE_INT64, LTE_FDD_ENB_PARAM_SIB6_PRESENT, 0, 0, 0, 1, false, true, false};
+    var_map[LTE_fdd_enb_param_text[LTE_FDD_ENB_PARAM_SIB7_PRESENT]]       = (LTE_FDD_ENB_VAR_STRUCT){LTE_FDD_ENB_VAR_TYPE_INT64, LTE_FDD_ENB_PARAM_SIB7_PRESENT, 0, 0, 0, 1, false, true, false};
+    var_map[LTE_fdd_enb_param_text[LTE_FDD_ENB_PARAM_SIB8_PRESENT]]       = (LTE_FDD_ENB_VAR_STRUCT){LTE_FDD_ENB_VAR_TYPE_INT64, LTE_FDD_ENB_PARAM_SIB8_PRESENT, 0, 0, 0, 1, false, true, false};
+    var_map[LTE_fdd_enb_param_text[LTE_FDD_ENB_PARAM_SEARCH_WIN_SIZE]]    = (LTE_FDD_ENB_VAR_STRUCT){LTE_FDD_ENB_VAR_TYPE_INT64, LTE_FDD_ENB_PARAM_SEARCH_WIN_SIZE, 0, 0, 0, 15, false, true, false};
+    var_map[LTE_fdd_enb_param_text[LTE_FDD_ENB_PARAM_DEBUG_TYPE]]         = (LTE_FDD_ENB_VAR_STRUCT){LTE_FDD_ENB_VAR_TYPE_UINT32, LTE_FDD_ENB_PARAM_DEBUG_TYPE, 0, 0, 0, 0, true, true, false};
+    var_map[LTE_fdd_enb_param_text[LTE_FDD_ENB_PARAM_DEBUG_LEVEL]]        = (LTE_FDD_ENB_VAR_STRUCT){LTE_FDD_ENB_VAR_TYPE_UINT32, LTE_FDD_ENB_PARAM_DEBUG_LEVEL, 0, 0, 0, 0, true, true, false};
+    var_map[LTE_fdd_enb_param_text[LTE_FDD_ENB_PARAM_ENABLE_PCAP]]        = (LTE_FDD_ENB_VAR_STRUCT){LTE_FDD_ENB_VAR_TYPE_INT64, LTE_FDD_ENB_PARAM_ENABLE_PCAP, 0, 0, 0, 1, false, true, false};
+    var_map[LTE_fdd_enb_param_text[LTE_FDD_ENB_PARAM_IP_ADDR_START]]      = (LTE_FDD_ENB_VAR_STRUCT){LTE_FDD_ENB_VAR_TYPE_HEX, LTE_FDD_ENB_PARAM_IP_ADDR_START, 0, 0, 0, 0, true, false, false};
+    var_map[LTE_fdd_enb_param_text[LTE_FDD_ENB_PARAM_DNS_ADDR]]           = (LTE_FDD_ENB_VAR_STRUCT){LTE_FDD_ENB_VAR_TYPE_HEX, LTE_FDD_ENB_PARAM_DNS_ADDR, 0, 0, 0, 0, true, false, false};
+    var_map[LTE_fdd_enb_param_text[LTE_FDD_ENB_PARAM_USE_CNFG_FILE]]      = (LTE_FDD_ENB_VAR_STRUCT){LTE_FDD_ENB_VAR_TYPE_INT64, LTE_FDD_ENB_PARAM_USE_CNFG_FILE, 0, 0, 0, 1, false, true, false};
+    var_map[LTE_fdd_enb_param_text[LTE_FDD_ENB_PARAM_USE_USER_FILE]]      = (LTE_FDD_ENB_VAR_STRUCT){LTE_FDD_ENB_VAR_TYPE_INT64, LTE_FDD_ENB_PARAM_USE_USER_FILE, 0, 0, 0, 1, false, true, false};
 
     debug_type_mask = 0;
     for(i=0; i<LTE_FDD_ENB_DEBUG_TYPE_N_ITEMS; i++)
@@ -573,8 +579,8 @@ void LTE_fdd_enb_interface::send_pcap_msg(LTE_FDD_ENB_PCAP_DIRECTION_ENUM  dir,
 
         // UEID Tag and UEID
         pcap_c_hdr[6] = 3;
-        pcap_c_hdr[7] = 0;
-        pcap_c_hdr[8] = 0;
+        tmp           = htons((uint16)rnti);
+        memcpy(&pcap_c_hdr[7], &tmp, sizeof(uint16));
 
         // SUBFN Tag and SUBFN
         pcap_c_hdr[9] = 4;
@@ -624,7 +630,7 @@ void LTE_fdd_enb_interface::handle_ctrl_msg(std::string msg)
     {
         interface->handle_read(msg.substr(msg.find("read")+sizeof("read"), std::string::npos));
     }else if(std::string::npos != msg.find("write")){
-        interface->handle_write(msg.substr(msg.find("write")+sizeof("write"), std::string::npos));
+        interface->send_ctrl_error_msg(interface->handle_write(msg.substr(msg.find("write")+sizeof("write"), std::string::npos)), "");
     }else if(std::string::npos != msg.find("start")){
         interface->handle_start();
     }else if(std::string::npos != msg.find("stop")){
@@ -785,7 +791,7 @@ void LTE_fdd_enb_interface::handle_read(std::string msg)
             }
         }else{
             // Handle all radio parameters
-            if(std::string::npos != msg.find(lte_fdd_enb_param_text[LTE_FDD_ENB_PARAM_AVAILABLE_RADIOS]))
+            if(std::string::npos != msg.find(LTE_fdd_enb_param_text[LTE_FDD_ENB_PARAM_AVAILABLE_RADIOS]))
             {
                 send_ctrl_error_msg(LTE_FDD_ENB_ERROR_NONE, boost::lexical_cast<std::string>(avail_radios.num_radios));
                 for(i=0; i<avail_radios.num_radios; i++)
@@ -795,15 +801,15 @@ void LTE_fdd_enb_interface::handle_read(std::string msg)
                     tmp_str += avail_radios.radio[i].name;
                     send_ctrl_msg(tmp_str);
                 }
-            }else if(std::string::npos != msg.find(lte_fdd_enb_param_text[LTE_FDD_ENB_PARAM_SELECTED_RADIO_NAME])){
+            }else if(std::string::npos != msg.find(LTE_fdd_enb_param_text[LTE_FDD_ENB_PARAM_SELECTED_RADIO_NAME])){
                 send_ctrl_error_msg(LTE_FDD_ENB_ERROR_NONE, selected_radio.name);
-            }else if(std::string::npos != msg.find(lte_fdd_enb_param_text[LTE_FDD_ENB_PARAM_SELECTED_RADIO_IDX])){
+            }else if(std::string::npos != msg.find(LTE_fdd_enb_param_text[LTE_FDD_ENB_PARAM_SELECTED_RADIO_IDX])){
                 send_ctrl_error_msg(LTE_FDD_ENB_ERROR_NONE, boost::lexical_cast<std::string>(radio->get_selected_radio_idx()));
-            }else if(std::string::npos != msg.find(lte_fdd_enb_param_text[LTE_FDD_ENB_PARAM_TX_GAIN])){
+            }else if(std::string::npos != msg.find(LTE_fdd_enb_param_text[LTE_FDD_ENB_PARAM_TX_GAIN])){
                 send_ctrl_error_msg(LTE_FDD_ENB_ERROR_NONE, boost::lexical_cast<std::string>(radio->get_tx_gain()));
-            }else if(std::string::npos != msg.find(lte_fdd_enb_param_text[LTE_FDD_ENB_PARAM_RX_GAIN])){
+            }else if(std::string::npos != msg.find(LTE_fdd_enb_param_text[LTE_FDD_ENB_PARAM_RX_GAIN])){
                 send_ctrl_error_msg(LTE_FDD_ENB_ERROR_NONE, boost::lexical_cast<std::string>(radio->get_rx_gain()));
-            }else if(std::string::npos != msg.find(lte_fdd_enb_param_text[LTE_FDD_ENB_PARAM_CLOCK_SOURCE])){
+            }else if(std::string::npos != msg.find(LTE_fdd_enb_param_text[LTE_FDD_ENB_PARAM_CLOCK_SOURCE])){
                 send_ctrl_error_msg(LTE_FDD_ENB_ERROR_NONE, radio->get_clock_source());
             }else{
                 send_ctrl_error_msg(LTE_FDD_ENB_ERROR_INVALID_PARAM, "");
@@ -813,7 +819,7 @@ void LTE_fdd_enb_interface::handle_read(std::string msg)
         send_ctrl_error_msg(LTE_FDD_ENB_ERROR_EXCEPTION, "");
     }
 }
-void LTE_fdd_enb_interface::handle_write(std::string msg)
+LTE_FDD_ENB_ERROR_ENUM LTE_fdd_enb_interface::handle_write(std::string msg)
 {
     LTE_fdd_enb_radio                                       *radio   = LTE_fdd_enb_radio::get_instance();
     std::map<std::string, LTE_FDD_ENB_VAR_STRUCT>::iterator  iter    = var_map.find(msg.substr(0, msg.find(" ")));
@@ -873,40 +879,35 @@ void LTE_fdd_enb_interface::handle_write(std::string msg)
                     }
                     break;
                 default:
-                    send_ctrl_error_msg(LTE_FDD_ENB_ERROR_INVALID_PARAM, "");
+                    err = LTE_FDD_ENB_ERROR_INVALID_PARAM;
                     break;
                 }
             }else{
                 err = LTE_FDD_ENB_ERROR_READ_ONLY;
             }
-
-            if(LTE_FDD_ENB_ERROR_NONE == err)
-            {
-                send_ctrl_error_msg(err, "");
-            }else{
-                send_ctrl_error_msg(err, "");
-            }
         }else{
             // Handle all radio parameters
-            if(std::string::npos != msg.find(lte_fdd_enb_param_text[LTE_FDD_ENB_PARAM_SELECTED_RADIO_IDX]))
+            if(std::string::npos != msg.find(LTE_fdd_enb_param_text[LTE_FDD_ENB_PARAM_SELECTED_RADIO_IDX]))
             {
                 u_value = boost::lexical_cast<uint32>(msg.substr(msg.find(" ")+1, std::string::npos));
-                send_ctrl_error_msg(radio->set_selected_radio_idx(u_value), "");
-            }else if(std::string::npos != msg.find(lte_fdd_enb_param_text[LTE_FDD_ENB_PARAM_TX_GAIN])){
+                err = radio->set_selected_radio_idx(u_value);
+            }else if(std::string::npos != msg.find(LTE_fdd_enb_param_text[LTE_FDD_ENB_PARAM_TX_GAIN])){
                 u_value = boost::lexical_cast<uint32>(msg.substr(msg.find(" ")+1, std::string::npos));
-                send_ctrl_error_msg(radio->set_tx_gain(u_value), "");
-            }else if(std::string::npos != msg.find(lte_fdd_enb_param_text[LTE_FDD_ENB_PARAM_RX_GAIN])){
+                err = radio->set_tx_gain(u_value);
+            }else if(std::string::npos != msg.find(LTE_fdd_enb_param_text[LTE_FDD_ENB_PARAM_RX_GAIN])){
                 u_value = boost::lexical_cast<uint32>(msg.substr(msg.find(" ")+1, std::string::npos));
-                send_ctrl_error_msg(radio->set_rx_gain(u_value), "");
-            }else if(std::string::npos != msg.find(lte_fdd_enb_param_text[LTE_FDD_ENB_PARAM_CLOCK_SOURCE])){
-                send_ctrl_error_msg(radio->set_clock_source(msg.substr(msg.find(" ")+1, std::string::npos)), "");
+                err = radio->set_rx_gain(u_value);
+            }else if(std::string::npos != msg.find(LTE_fdd_enb_param_text[LTE_FDD_ENB_PARAM_CLOCK_SOURCE])){
+                err = radio->set_clock_source(msg.substr(msg.find(" ")+1, std::string::npos));
             }else{
-                send_ctrl_error_msg(LTE_FDD_ENB_ERROR_INVALID_PARAM, "");
+                err = LTE_FDD_ENB_ERROR_INVALID_PARAM;
             }
         }
     }catch(...){
-        send_ctrl_error_msg(LTE_FDD_ENB_ERROR_EXCEPTION, "");
+        err = LTE_FDD_ENB_ERROR_EXCEPTION;
     }
+
+    return(err);
 }
 void LTE_fdd_enb_interface::handle_start(void)
 {
@@ -1150,7 +1151,7 @@ void LTE_fdd_enb_interface::handle_help(void)
     // Radio Parameters
     send_ctrl_msg("\tRadio Parameters:");
     tmp_str  = "\t\t";
-    tmp_str += lte_fdd_enb_param_text[LTE_FDD_ENB_PARAM_AVAILABLE_RADIOS];
+    tmp_str += LTE_fdd_enb_param_text[LTE_FDD_ENB_PARAM_AVAILABLE_RADIOS];
     tmp_str += ": (read-only)";
     send_ctrl_msg(tmp_str);
     for(i=0; i<avail_radios.num_radios; i++)
@@ -1167,12 +1168,12 @@ void LTE_fdd_enb_interface::handle_help(void)
         send_ctrl_msg(tmp_str);
     }
     tmp_str  = "\t\t";
-    tmp_str += lte_fdd_enb_param_text[LTE_FDD_ENB_PARAM_SELECTED_RADIO_NAME];
+    tmp_str += LTE_fdd_enb_param_text[LTE_FDD_ENB_PARAM_SELECTED_RADIO_NAME];
     tmp_str += " (read-only) = ";
     tmp_str += selected_radio.name;
     send_ctrl_msg(tmp_str);
     tmp_str  = "\t\t";
-    tmp_str += lte_fdd_enb_param_text[LTE_FDD_ENB_PARAM_SELECTED_RADIO_IDX];
+    tmp_str += LTE_fdd_enb_param_text[LTE_FDD_ENB_PARAM_SELECTED_RADIO_IDX];
     tmp_str += " = ";
     try
     {
@@ -1182,7 +1183,7 @@ void LTE_fdd_enb_interface::handle_help(void)
     }
     send_ctrl_msg(tmp_str);
     tmp_str  = "\t\t";
-    tmp_str += lte_fdd_enb_param_text[LTE_FDD_ENB_PARAM_TX_GAIN];
+    tmp_str += LTE_fdd_enb_param_text[LTE_FDD_ENB_PARAM_TX_GAIN];
     tmp_str += " = ";
     try
     {
@@ -1192,7 +1193,7 @@ void LTE_fdd_enb_interface::handle_help(void)
     }
     send_ctrl_msg(tmp_str);
     tmp_str  = "\t\t";
-    tmp_str += lte_fdd_enb_param_text[LTE_FDD_ENB_PARAM_RX_GAIN];
+    tmp_str += LTE_fdd_enb_param_text[LTE_FDD_ENB_PARAM_RX_GAIN];
     tmp_str += " = ";
     try
     {
@@ -1202,7 +1203,7 @@ void LTE_fdd_enb_interface::handle_help(void)
     }
     send_ctrl_msg(tmp_str);
     tmp_str  = "\t\t";
-    tmp_str += lte_fdd_enb_param_text[LTE_FDD_ENB_PARAM_CLOCK_SOURCE];
+    tmp_str += LTE_fdd_enb_param_text[LTE_FDD_ENB_PARAM_CLOCK_SOURCE];
     tmp_str += " = ";
     tmp_str += radio->get_clock_source();
     send_ctrl_msg(tmp_str);
@@ -1212,7 +1213,7 @@ void LTE_fdd_enb_interface::handle_help(void)
     for(iter=var_map.begin(); iter!=var_map.end(); iter++)
     {
         tmp_str  = "\t\t";
-        tmp_str += lte_fdd_enb_param_text[(*iter).second.param];
+        tmp_str += LTE_fdd_enb_param_text[(*iter).second.param];
         tmp_str += " = ";
         try
         {
@@ -1464,6 +1465,10 @@ LTE_FDD_ENB_ERROR_ENUM LTE_fdd_enb_interface::write_value(LTE_FDD_ENB_VAR_STRUCT
             {
                 err = cnfg_db->set_param(var->param, value);
             }
+        }else if((LTE_FDD_ENB_PARAM_IP_ADDR_START == var->param  ||
+                  LTE_FDD_ENB_PARAM_DNS_ADDR      == var->param) &&
+                 value.length()                   == 8){
+            err = cnfg_db->set_param(var->param, value);
         }else{
             err = LTE_FDD_ENB_ERROR_INVALID_PARAM;
         }

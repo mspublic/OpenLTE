@@ -48,6 +48,7 @@
     09/28/2013    Ben Wojtowicz    Added support for setting the sample rate
                                    and input data type.
     03/26/2014    Ben Wojtowicz    Using the latest LTE library.
+    11/01/2014    Ben Wojtowicz    Using the latest LTE library.
 
 *******************************************************************************/
 
@@ -855,8 +856,8 @@ void LTE_fdd_dl_fs_samp_buf::print_sib1(LIBLTE_RRC_SYS_INFO_BLOCK_TYPE_1_STRUCT 
             printf("\t\t%-40s=%20s\n", "Duplexing Mode", "FDD");
         }else{
             printf("\t\t%-40s=%20s\n", "Duplexing Mode", "TDD");
-            printf("\t\t%-40s=%20s\n", "Subframe Assignment", liblte_rrc_subframe_assignment_text[sib1->sf_assignment]);
-            printf("\t\t%-40s=%20s\n", "Special Subframe Patterns", liblte_rrc_special_subframe_patterns_text[sib1->special_sf_patterns]);
+            printf("\t\t%-40s=%20s\n", "Subframe Assignment", liblte_rrc_subframe_assignment_text[sib1->tdd_cnfg.sf_assignment]);
+            printf("\t\t%-40s=%20s\n", "Special Subframe Patterns", liblte_rrc_special_subframe_patterns_text[sib1->tdd_cnfg.special_sf_patterns]);
         }
         printf("\t\t%-40s=%20u\n", "SI Value Tag", sib1->system_info_value_tag);
         prev_si_value_tag       = sib1->system_info_value_tag;

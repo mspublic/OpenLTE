@@ -29,6 +29,7 @@
     03/26/2014    Ben Wojtowicz    Using the latest LTE library.
     08/03/2014    Ben Wojtowicz    Added support for limiting PCAP output.
     09/03/2014    Ben Wojtowicz    Added better MCC/MNC support.
+    11/01/2014    Ben Wojtowicz    Added config file support.
 
 *******************************************************************************/
 
@@ -49,6 +50,7 @@
                               DEFINES
 *******************************************************************************/
 
+#define LTE_FDD_ENB_MAX_LINE_SIZE 512
 
 /*******************************************************************************
                               FORWARD DECLARATIONS
@@ -120,6 +122,9 @@ public:
     void construct_sys_info(void);
     void get_sys_info(LTE_FDD_ENB_SYS_INFO_STRUCT &_sys_info);
 
+    // Config File
+    void read_cnfg_file(void);
+
 private:
     // Singleton
     static LTE_fdd_enb_cnfg_db *instance;
@@ -133,6 +138,11 @@ private:
 
     // System information
     LTE_FDD_ENB_SYS_INFO_STRUCT sys_info;
+
+    // Config File
+    void write_cnfg_file(void);
+    void delete_cnfg_file(void);
+    bool use_cnfg_file;
 };
 
 #endif /* __LTE_FDD_ENB_CNFG_DB_H__ */

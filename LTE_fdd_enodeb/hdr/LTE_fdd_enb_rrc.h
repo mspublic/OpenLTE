@@ -31,6 +31,8 @@
                                    message handling.
     08/03/2014    Ben Wojtowicz    Added downlink NAS message handling and
                                    connection release.
+    11/01/2014    Ben Wojtowicz    Added RRC connection reconfiguration and
+                                   security mode command messages.
 
 *******************************************************************************/
 
@@ -115,8 +117,10 @@ private:
 
     // Message Senders
     void send_dl_info_transfer(LTE_fdd_enb_user *user, LTE_fdd_enb_rb *rb, LIBLTE_BYTE_MSG_STRUCT *msg);
+    void send_rrc_con_reconfig(LTE_fdd_enb_user *user, LTE_fdd_enb_rb *rb, LIBLTE_BYTE_MSG_STRUCT *msg);
     void send_rrc_con_release(LTE_fdd_enb_user *user, LTE_fdd_enb_rb *rb);
     void send_rrc_con_setup(LTE_fdd_enb_user *user, LTE_fdd_enb_rb *rb);
+    void send_security_mode_command(LTE_fdd_enb_user *user, LTE_fdd_enb_rb *rb);
 
     // Parameters
     boost::mutex                sys_info_mutex;

@@ -30,6 +30,7 @@
     08/03/2014    Ben Wojtowicz    Refactored user identities.
     09/03/2014    Ben Wojtowicz    Added ciphering and integrity algorithm
                                    storing.
+    11/01/2014    Ben Wojtowicz    Added more MME support and RRC key storage.
 
 *******************************************************************************/
 
@@ -43,6 +44,7 @@
 #include "LTE_fdd_enb_interface.h"
 #include "LTE_fdd_enb_rb.h"
 #include "liblte_mac.h"
+#include "liblte_mme.h"
 #include "typedefs.h"
 #include <string>
 
@@ -75,6 +77,8 @@ typedef struct{
     uint8  autn[16];
     uint8  k_nas_enc[32];
     uint8  k_nas_int[32];
+    uint8  k_rrc_enc[32];
+    uint8  k_rrc_int[32];
 }LTE_FDD_ENB_AUTHENTICATION_VECTOR_STRUCT;
 
 /*******************************************************************************
@@ -95,6 +99,9 @@ public:
     void set_id(LTE_FDD_ENB_USER_ID_STRUCT *identity);
     LTE_FDD_ENB_USER_ID_STRUCT* get_id(void);
     bool is_id_set(void);
+    void set_guti(LIBLTE_MME_EPS_MOBILE_ID_GUTI_STRUCT *_guti);
+    LIBLTE_MME_EPS_MOBILE_ID_GUTI_STRUCT* get_guti(void);
+    bool is_guti_set(void);
     void set_temp_id(uint64 id);
     uint64 get_temp_id(void);
     std::string get_imsi_str(void);
@@ -104,6 +111,11 @@ public:
     void set_c_rnti(uint16 _c_rnti);
     uint16 get_c_rnti(void);
     bool is_c_rnti_set(void);
+    void set_ip_addr(uint32 addr);
+    uint32 get_ip_addr(void);
+    bool is_ip_addr_set(void);
+
+    // Security
     void set_auth_vec(LTE_FDD_ENB_AUTHENTICATION_VECTOR_STRUCT *av);
     LTE_FDD_ENB_AUTHENTICATION_VECTOR_STRUCT* get_auth_vec(void);
     void increment_nas_count_dl(void);
@@ -134,6 +146,22 @@ public:
     LTE_FDD_ENB_ERROR_ENUM teardown_srb2(void);
     LTE_FDD_ENB_ERROR_ENUM get_srb2(LTE_fdd_enb_rb **rb);
 
+    // MME
+    void set_emm_cause(uint8 cause);
+    uint8 get_emm_cause(void);
+    void set_attach_type(uint8 type);
+    uint8 get_attach_type(void);
+    void set_pdn_type(uint8 type);
+    uint8 get_pdn_type(void);
+    void set_eps_bearer_id(uint8 id);
+    uint8 get_eps_bearer_id(void);
+    void set_proc_transaction_id(uint8 id);
+    uint8 get_proc_transaction_id(void);
+    void set_esm_info_transfer(bool eit);
+    bool get_esm_info_transfer(void);
+    void set_protocol_cnfg_opts(LIBLTE_MME_PROTOCOL_CONFIG_OPTIONS_STRUCT *pco);
+    LIBLTE_MME_PROTOCOL_CONFIG_OPTIONS_STRUCT* get_protocol_cnfg_opts(void);
+
     // MAC
     bool get_dl_ndi(void);
     void flip_dl_ndi(void);
@@ -147,12 +175,18 @@ public:
 
 private:
     // Identity
-    LTE_FDD_ENB_USER_ID_STRUCT               id;
+    LTE_FDD_ENB_USER_ID_STRUCT           id;
+    LIBLTE_MME_EPS_MOBILE_ID_GUTI_STRUCT guti;
+    uint64                               temp_id;
+    uint32                               c_rnti;
+    uint32                               ip_addr;
+    bool                                 id_set;
+    bool                                 guti_set;
+    bool                                 c_rnti_set;
+    bool                                 ip_addr_set;
+
+    // Security
     LTE_FDD_ENB_AUTHENTICATION_VECTOR_STRUCT auth_vec;
-    uint64                                   temp_id;
-    uint32                                   c_rnti;
-    bool                                     id_set;
-    bool                                     c_rnti_set;
     bool                                     auth_vec_set;
 
     // Capabilities
@@ -170,6 +204,15 @@ private:
     LTE_fdd_enb_rb *srb1;
     LTE_fdd_enb_rb *srb2;
     LTE_fdd_enb_rb *drb[8];
+
+    // MME
+    LIBLTE_MME_PROTOCOL_CONFIG_OPTIONS_STRUCT protocol_cnfg_opts;
+    uint8                                     emm_cause;
+    uint8                                     attach_type;
+    uint8                                     pdn_type;
+    uint8                                     eps_bearer_id;
+    uint8                                     proc_transaction_id;
+    bool                                      eit_flag;
 
     // MAC
     bool dl_ndi;
