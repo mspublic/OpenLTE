@@ -1,6 +1,7 @@
 /*******************************************************************************
 
     Copyright 2012-2014 Ben Wojtowicz
+    Copyright 2014 Andrew Murphy (SIB13 unpack)
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -46,7 +47,9 @@
     08/03/2014    Ben Wojtowicz    Added more decoding/encoding and using the
                                    common value_2_bits and bits_2_value
                                    functions.
+    09/19/2014    Andrew Murphy    Added SIB13 unpack.
     11/01/2014    Ben Wojtowicz    Added more decoding/encoding.
+    11/09/2014    Ben Wojtowicz    Added SIB13 pack.
 
 *******************************************************************************/
 
@@ -128,7 +131,57 @@ LIBLTE_ERROR_ENUM liblte_rrc_unpack_mbsfn_notification_config_ie(uint8          
 
     Document Reference: 36.331 v10.0.0 Section 6.3.7
 *********************************************************************/
-// FIXME
+LIBLTE_ERROR_ENUM liblte_rrc_pack_mbsfn_area_info_ie(LIBLTE_RRC_MBSFN_AREA_INFO_STRUCT  *mbsfn_area_info,
+                                                     uint8                             **ie_ptr)
+{
+    LIBLTE_ERROR_ENUM err = LIBLTE_ERROR_INVALID_INPUTS;
+
+    if(mbsfn_area_info != NULL &&
+       ie_ptr          != NULL)
+    {
+        // Extension indicator
+        value_2_bits(0, ie_ptr, 1);
+
+        value_2_bits(mbsfn_area_info->mbsfn_area_id_r9,            ie_ptr, 8);
+        value_2_bits(mbsfn_area_info->non_mbsfn_region_length,     ie_ptr, 1);
+        value_2_bits(mbsfn_area_info->notification_indicator_r9,   ie_ptr, 3);
+        value_2_bits(mbsfn_area_info->mcch_repetition_period_r9,   ie_ptr, 2);
+        value_2_bits(mbsfn_area_info->mcch_offset_r9,              ie_ptr, 4);
+        value_2_bits(mbsfn_area_info->mcch_modification_period_r9, ie_ptr, 1);
+        value_2_bits(mbsfn_area_info->sf_alloc_info_r9,            ie_ptr, 6);
+        value_2_bits(mbsfn_area_info->signalling_mcs_r9,           ie_ptr, 2);
+
+        err = LIBLTE_SUCCESS;
+    }
+
+    return(err);
+}
+LIBLTE_ERROR_ENUM liblte_rrc_unpack_mbsfn_area_info_ie(uint8                             **ie_ptr,
+                                                       LIBLTE_RRC_MBSFN_AREA_INFO_STRUCT  *mbsfn_area_info)
+{
+    LIBLTE_ERROR_ENUM err = LIBLTE_ERROR_INVALID_INPUTS;
+    bool              ext_ind;
+
+    if(ie_ptr          != NULL &&
+       mbsfn_area_info != NULL)
+    {
+        // Extension indicator
+        ext_ind = bits_2_value(ie_ptr, 1);
+
+        mbsfn_area_info->mbsfn_area_id_r9            = bits_2_value(ie_ptr, 8);
+        mbsfn_area_info->non_mbsfn_region_length     = (LIBLTE_RRC_NON_MBSFN_REGION_LENGTH_ENUM)bits_2_value(ie_ptr, 1);
+        mbsfn_area_info->notification_indicator_r9   = bits_2_value(ie_ptr, 3);
+        mbsfn_area_info->mcch_repetition_period_r9   = (LIBLTE_RRC_MCCH_REPETITION_PERIOD_ENUM)bits_2_value(ie_ptr, 2);
+        mbsfn_area_info->mcch_offset_r9              = bits_2_value(ie_ptr, 4);
+        mbsfn_area_info->mcch_modification_period_r9 = (LIBLTE_RRC_MCCH_MODIFICATION_PERIOD_ENUM)bits_2_value(ie_ptr, 1);
+        mbsfn_area_info->sf_alloc_info_r9            = bits_2_value(ie_ptr, 6);
+        mbsfn_area_info->signalling_mcs_r9           = (LIBLTE_RRC_MCCH_SIGNALLING_MCS_ENUM)bits_2_value(ie_ptr, 2);
+
+        err = LIBLTE_SUCCESS;
+    }
+
+    return(err);
+}
 
 /*********************************************************************
     IE Name: MBSFN Subframe Config
@@ -9588,7 +9641,62 @@ LIBLTE_ERROR_ENUM liblte_rrc_unpack_sys_info_block_type_8_ie(uint8              
 
     Document Reference: 36.331 v10.0.0 Section 6.3.1
 *********************************************************************/
-// FIXME
+LIBLTE_ERROR_ENUM liblte_rrc_pack_sys_info_block_type_13_ie(LIBLTE_RRC_SYS_INFO_BLOCK_TYPE_13_STRUCT  *sib13,
+                                                            uint8                                    **ie_ptr)
+{
+    LIBLTE_ERROR_ENUM err = LIBLTE_ERROR_INVALID_INPUTS;
+    uint32            i;
+
+    if(sib13  != NULL &&
+       ie_ptr != NULL)
+    {
+        // Extension indicator
+        value_2_bits(0, ie_ptr, 1);
+
+        // Optional indicators
+        value_2_bits(0, ie_ptr, 1);
+
+        value_2_bits(sib13->mbsfn_area_info_list_r9_size - 1, ie_ptr, 3);
+        for(i=0; i<sib13->mbsfn_area_info_list_r9_size; i++)
+        {
+            liblte_rrc_pack_mbsfn_area_info_ie(&sib13->mbsfn_area_info_list_r9[i], ie_ptr);
+        }
+        liblte_rrc_pack_mbsfn_notification_config_ie(&sib13->mbms_notification_config, ie_ptr);
+
+        err = LIBLTE_SUCCESS;
+    }
+
+    return(err);
+}
+LIBLTE_ERROR_ENUM liblte_rrc_unpack_sys_info_block_type_13_ie(uint8                                    **ie_ptr,
+                                                              LIBLTE_RRC_SYS_INFO_BLOCK_TYPE_13_STRUCT  *sib13)
+{
+    LIBLTE_ERROR_ENUM err = LIBLTE_ERROR_INVALID_INPUTS;
+    uint32            i;
+    bool              ext_ind;
+    bool              non_crit_ext_present;
+
+    if(ie_ptr != NULL &&
+       sib13  != NULL)
+    {
+        // Extension indicator
+        ext_ind = bits_2_value(ie_ptr, 1);
+
+        // Optional indicators
+        non_crit_ext_present = bits_2_value(ie_ptr, 1);
+
+        sib13->mbsfn_area_info_list_r9_size = bits_2_value(ie_ptr, 3) + 1;
+        for(i=0; i<sib13->mbsfn_area_info_list_r9_size; i++)
+        {
+            liblte_rrc_unpack_mbsfn_area_info_ie(ie_ptr, &sib13->mbsfn_area_info_list_r9[i]);
+        }
+        liblte_rrc_unpack_mbsfn_notification_config_ie(ie_ptr, &sib13->mbms_notification_config);
+
+        err = LIBLTE_SUCCESS;
+    }
+
+    return(err);
+}
 
 /*******************************************************************************
                               MESSAGE FUNCTIONS
@@ -10016,6 +10124,9 @@ LIBLTE_ERROR_ENUM liblte_rrc_pack_sys_info_msg(LIBLTE_RRC_SYS_INFO_MSG_STRUCT *s
 {
     LIBLTE_ERROR_ENUM  err     = LIBLTE_ERROR_INVALID_INPUTS;
     uint8             *msg_ptr = msg->msg;
+    uint8             *length_ptr;
+    uint32             length;
+    uint32             pad_bits;
     uint32             i;
 
     if(sibs != NULL &&
@@ -10032,38 +10143,88 @@ LIBLTE_ERROR_ENUM liblte_rrc_pack_sys_info_msg(LIBLTE_RRC_SYS_INFO_MSG_STRUCT *s
 
         for(i=0; i<sibs->N_sibs; i++)
         {
-            // Extension indicator
-            value_2_bits(0, &msg_ptr, 1);
-
-            value_2_bits(sibs->sibs[i].sib_type, &msg_ptr, 4);
-            switch(sibs->sibs[i].sib_type)
+            if(sibs->sibs[i].sib_type < LIBLTE_RRC_SYS_INFO_BLOCK_TYPE_12)
             {
-            case LIBLTE_RRC_SYS_INFO_BLOCK_TYPE_2:
-                err = liblte_rrc_pack_sys_info_block_type_2_ie((LIBLTE_RRC_SYS_INFO_BLOCK_TYPE_2_STRUCT *)&sibs->sibs[i].sib,
-                                                               &msg_ptr);
-                break;
-            case LIBLTE_RRC_SYS_INFO_BLOCK_TYPE_3:
-                err = liblte_rrc_pack_sys_info_block_type_3_ie((LIBLTE_RRC_SYS_INFO_BLOCK_TYPE_3_STRUCT *)&sibs->sibs[i].sib,
-                                                               &msg_ptr);
-                break;
-            case LIBLTE_RRC_SYS_INFO_BLOCK_TYPE_4:
-                err = liblte_rrc_pack_sys_info_block_type_4_ie((LIBLTE_RRC_SYS_INFO_BLOCK_TYPE_4_STRUCT *)&sibs->sibs[i].sib,
-                                                               &msg_ptr);
-                break;
-            case LIBLTE_RRC_SYS_INFO_BLOCK_TYPE_8:
-                err = liblte_rrc_pack_sys_info_block_type_8_ie((LIBLTE_RRC_SYS_INFO_BLOCK_TYPE_8_STRUCT *)&sibs->sibs[i].sib,
-                                                               &msg_ptr);
-                break;
-            case LIBLTE_RRC_SYS_INFO_BLOCK_TYPE_5:
-            case LIBLTE_RRC_SYS_INFO_BLOCK_TYPE_6:
-            case LIBLTE_RRC_SYS_INFO_BLOCK_TYPE_7:
-            case LIBLTE_RRC_SYS_INFO_BLOCK_TYPE_9:
-            case LIBLTE_RRC_SYS_INFO_BLOCK_TYPE_10:
-            case LIBLTE_RRC_SYS_INFO_BLOCK_TYPE_11:
-            default:
-                printf("ERROR: Not handling sib type %u\n", sibs->sibs[i].sib_type);
-                err = LIBLTE_ERROR_INVALID_INPUTS;
-                break;
+                // Extension indicator
+                value_2_bits(0, &msg_ptr, 1);
+
+                value_2_bits(sibs->sibs[i].sib_type, &msg_ptr, 4);
+                switch(sibs->sibs[i].sib_type)
+                {
+                case LIBLTE_RRC_SYS_INFO_BLOCK_TYPE_2:
+                    err = liblte_rrc_pack_sys_info_block_type_2_ie((LIBLTE_RRC_SYS_INFO_BLOCK_TYPE_2_STRUCT *)&sibs->sibs[i].sib,
+                                                                   &msg_ptr);
+                    break;
+                case LIBLTE_RRC_SYS_INFO_BLOCK_TYPE_3:
+                    err = liblte_rrc_pack_sys_info_block_type_3_ie((LIBLTE_RRC_SYS_INFO_BLOCK_TYPE_3_STRUCT *)&sibs->sibs[i].sib,
+                                                                   &msg_ptr);
+                    break;
+                case LIBLTE_RRC_SYS_INFO_BLOCK_TYPE_4:
+                    err = liblte_rrc_pack_sys_info_block_type_4_ie((LIBLTE_RRC_SYS_INFO_BLOCK_TYPE_4_STRUCT *)&sibs->sibs[i].sib,
+                                                                   &msg_ptr);
+                    break;
+                case LIBLTE_RRC_SYS_INFO_BLOCK_TYPE_8:
+                    err = liblte_rrc_pack_sys_info_block_type_8_ie((LIBLTE_RRC_SYS_INFO_BLOCK_TYPE_8_STRUCT *)&sibs->sibs[i].sib,
+                                                                   &msg_ptr);
+                    break;
+                case LIBLTE_RRC_SYS_INFO_BLOCK_TYPE_5:
+                case LIBLTE_RRC_SYS_INFO_BLOCK_TYPE_6:
+                case LIBLTE_RRC_SYS_INFO_BLOCK_TYPE_7:
+                case LIBLTE_RRC_SYS_INFO_BLOCK_TYPE_9:
+                case LIBLTE_RRC_SYS_INFO_BLOCK_TYPE_10:
+                case LIBLTE_RRC_SYS_INFO_BLOCK_TYPE_11:
+                default:
+                    printf("ERROR: Not handling sib type %u\n", sibs->sibs[i].sib_type);
+                    err = LIBLTE_ERROR_INVALID_INPUTS;
+                    break;
+                }
+            }else{
+                // Extension indicator
+                value_2_bits(1, &msg_ptr, 1);
+
+                value_2_bits(sibs->sibs[i].sib_type - 10, &msg_ptr, 7);
+                length_ptr = msg_ptr;
+                value_2_bits(0, &msg_ptr, 8);
+                switch(sibs->sibs[i].sib_type)
+                {
+                case LIBLTE_RRC_SYS_INFO_BLOCK_TYPE_13:
+                    err = liblte_rrc_pack_sys_info_block_type_13_ie((LIBLTE_RRC_SYS_INFO_BLOCK_TYPE_13_STRUCT *)&sibs->sibs[i].sib,
+                                                                    &msg_ptr);
+                    break;
+                case LIBLTE_RRC_SYS_INFO_BLOCK_TYPE_12:
+                default:
+                    printf("ERROR: Not handling extended sib type %s\n", liblte_rrc_sys_info_block_type_text[sibs->sibs[i].sib_type]);
+                    err = LIBLTE_ERROR_INVALID_INPUTS;
+                    break;
+                }
+                length   = ((msg_ptr - length_ptr) / 8) - 1;
+                pad_bits = (msg_ptr - length_ptr) % 8;
+                if(0 != pad_bits)
+                {
+                    length++;
+                }
+                if(length < 128)
+                {
+                    value_2_bits(0,      &length_ptr, 1);
+                    value_2_bits(length, &length_ptr, 7);
+                }else{
+                    msg_ptr = length_ptr;
+                    value_2_bits(0,      &msg_ptr, 2);
+                    value_2_bits(length, &msg_ptr, 14);
+                    switch(sibs->sibs[i].sib_type)
+                    {
+                    case LIBLTE_RRC_SYS_INFO_BLOCK_TYPE_13:
+                        err = liblte_rrc_pack_sys_info_block_type_13_ie((LIBLTE_RRC_SYS_INFO_BLOCK_TYPE_13_STRUCT *)&sibs->sibs[i].sib,
+                                                                        &msg_ptr);
+                        break;
+                    case LIBLTE_RRC_SYS_INFO_BLOCK_TYPE_12:
+                    default:
+                        printf("ERROR: Not handling extended sib type %s\n", liblte_rrc_sys_info_block_type_text[sibs->sibs[i].sib_type]);
+                        err = LIBLTE_ERROR_INVALID_INPUTS;
+                        break;
+                    }
+                }
+                value_2_bits(0, &msg_ptr, pad_bits);
             }
 
             if(LIBLTE_SUCCESS != err)
@@ -10083,7 +10244,9 @@ LIBLTE_ERROR_ENUM liblte_rrc_unpack_sys_info_msg(LIBLTE_BIT_MSG_STRUCT          
 {
     LIBLTE_ERROR_ENUM  err     = LIBLTE_ERROR_INVALID_INPUTS;
     uint8             *msg_ptr = msg->msg;
+    uint8             *head_ptr;
     uint32             i;
+    uint32             length_determinant_octets;
     uint8              non_crit_ext_opt;
 
     if(msg  != NULL &&
@@ -10143,8 +10306,33 @@ LIBLTE_ERROR_ENUM liblte_rrc_unpack_sys_info_msg(LIBLTE_BIT_MSG_STRUCT          
                         break;
                     }
                 }else{
-                    printf("ERROR: Not handling extended SIB type and info\n");
-                    err = LIBLTE_ERROR_INVALID_INPUTS;
+                    sibs->sibs[i].sib_type    = (LIBLTE_RRC_SYS_INFO_BLOCK_TYPE_ENUM)(bits_2_value(&msg_ptr, 7) + 10);
+                    length_determinant_octets = 0;
+                    if(0 == bits_2_value(&msg_ptr, 1))
+                    {
+                        length_determinant_octets = bits_2_value(&msg_ptr, 7);
+                    }else{
+                        if(0 == bits_2_value(&msg_ptr, 1))
+                        {
+                            length_determinant_octets = bits_2_value(&msg_ptr, 14);
+                        }else{
+                            printf("ERROR: Not handling fragmented length determinants\n");
+                        }
+                    }
+                    head_ptr = msg_ptr;
+                    switch(sibs->sibs[i].sib_type)
+                    {
+                    case LIBLTE_RRC_SYS_INFO_BLOCK_TYPE_13:
+                        err = liblte_rrc_unpack_sys_info_block_type_13_ie(&msg_ptr,
+                                                                          (LIBLTE_RRC_SYS_INFO_BLOCK_TYPE_13_STRUCT *)&sibs->sibs[i].sib);
+                        break;
+                    case LIBLTE_RRC_SYS_INFO_BLOCK_TYPE_12:
+                    default:
+                        printf("ERROR: Not handling extended sib type %s\n", liblte_rrc_sys_info_block_type_text[sibs->sibs[i].sib_type]);
+                        err = LIBLTE_ERROR_INVALID_INPUTS;
+                        break;
+                    }
+                    bits_2_value(&msg_ptr, (msg_ptr - head_ptr) % 8);
                 }
 
                 if(LIBLTE_SUCCESS != err)

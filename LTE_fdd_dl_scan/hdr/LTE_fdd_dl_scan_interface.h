@@ -1,6 +1,7 @@
 /*******************************************************************************
 
     Copyright 2013-2014 Ben Wojtowicz
+    Copyright 2014 Andrew Murphy (SIB13 printing)
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -27,6 +28,7 @@
     02/26/2013    Ben Wojtowicz    Created file
     07/21/2013    Ben Wojtowicz    Added support for decoding SIBs.
     06/15/2014    Ben Wojtowicz    Added PCAP support.
+    09/19/2014    Andrew Murphy    Added SIB13 printing.
 
 *******************************************************************************/
 
@@ -94,6 +96,7 @@ public:
     void send_ctrl_sib6_decoded_msg(LTE_FDD_DL_SCAN_CHAN_DATA_STRUCT *chan_data, LIBLTE_RRC_SYS_INFO_BLOCK_TYPE_6_STRUCT *sib6, uint32 sfn);
     void send_ctrl_sib7_decoded_msg(LTE_FDD_DL_SCAN_CHAN_DATA_STRUCT *chan_data, LIBLTE_RRC_SYS_INFO_BLOCK_TYPE_7_STRUCT *sib7, uint32 sfn);
     void send_ctrl_sib8_decoded_msg(LTE_FDD_DL_SCAN_CHAN_DATA_STRUCT *chan_data, LIBLTE_RRC_SYS_INFO_BLOCK_TYPE_8_STRUCT *sib8, uint32 sfn);
+    void send_ctrl_sib13_decoded_msg(LTE_FDD_DL_SCAN_CHAN_DATA_STRUCT *chan_data, LIBLTE_RRC_SYS_INFO_BLOCK_TYPE_13_STRUCT *sib13, uint32 sfn);
     void send_ctrl_channel_found_end_msg(LTE_FDD_DL_SCAN_CHAN_DATA_STRUCT *chan_data);
     void send_ctrl_channel_not_found_msg(void);
     void send_ctrl_status_msg(LTE_FDD_DL_SCAN_STATUS_ENUM status, std::string msg);

@@ -1,6 +1,7 @@
 /*******************************************************************************
 
     Copyright 2012-2014 Ben Wojtowicz
+    Copyright 2014 Andrew Murphy (SIB13 unpack)
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -42,7 +43,9 @@
     05/04/2014    Ben Wojtowicz    Added support for DL CCCH Messages.
     06/15/2014    Ben Wojtowicz    Added support for UL DCCH Messages.
     08/03/2014    Ben Wojtowicz    Added more decoding/encoding.
+    09/19/2014    Andrew Murphy    Added SIB13 unpack.
     11/01/2014    Ben Wojtowicz    Added more decoding/encoding.
+    11/09/2014    Ben Wojtowicz    Added SIB13 pack.
 
 *******************************************************************************/
 
@@ -109,10 +112,56 @@ LIBLTE_ERROR_ENUM liblte_rrc_unpack_mbsfn_notification_config_ie(uint8          
     Document Reference: 36.331 v10.0.0 Section 6.3.7
 *********************************************************************/
 // Defines
+#define LIBLTE_RRC_MAX_MBSFN_AREAS 8
 // Enums
+typedef enum{
+    LIBLTE_RRC_NON_MBSFN_REGION_LENGTH_S1 = 0,
+    LIBLTE_RRC_NON_MBSFN_REGION_LENGTH_S2,
+    LIBLTE_RRC_NON_MBSFN_REGION_LENGTH_N_ITEMS,
+}LIBLTE_RRC_NON_MBSFN_REGION_LENGTH_ENUM;
+static const char liblte_rrc_non_mbsfn_region_length_text[LIBLTE_RRC_NON_MBSFN_REGION_LENGTH_N_ITEMS][20] = {"1", "2"};
+static const uint8 liblte_rrc_non_mbsfn_region_length_num[LIBLTE_RRC_NON_MBSFN_REGION_LENGTH_N_ITEMS] = {1, 2};
+typedef enum{
+    LIBLTE_RRC_MCCH_REPETITION_PERIOD_RF32 = 0,
+    LIBLTE_RRC_MCCH_REPETITION_PERIOD_RF64,
+    LIBLTE_RRC_MCCH_REPETITION_PERIOD_RF128,
+    LIBLTE_RRC_MCCH_REPETITION_PERIOD_RF256,
+    LIBLTE_RRC_MCCH_REPETITION_PERIOD_N_ITEMS,
+}LIBLTE_RRC_MCCH_REPETITION_PERIOD_ENUM;
+static const char liblte_rrc_mcch_repetition_period_r9_text[LIBLTE_RRC_MCCH_REPETITION_PERIOD_N_ITEMS][20] = {"32", "64", "128", "256"};
+static const uint16 liblte_rrc_mcch_repetition_period_r9_num[LIBLTE_RRC_MCCH_REPETITION_PERIOD_N_ITEMS] = {32, 64, 128, 256};
+typedef enum{
+    LIBLTE_RRC_MCCH_MODIFICATION_PERIOD_512 = 0,
+    LIBLTE_RRC_MCCH_MODIFICATION_PERIOD_1024,
+    LIBLTE_RRC_MCCH_MODIFICATION_PERIOD_N_ITEMS,
+}LIBLTE_RRC_MCCH_MODIFICATION_PERIOD_ENUM;
+static const char liblte_rrc_mcch_modification_period_r9_text[LIBLTE_RRC_MCCH_MODIFICATION_PERIOD_N_ITEMS][20] = {"512", "1024"};
+static const uint16 liblte_rrc_mcch_modification_period_r9_num[LIBLTE_RRC_MCCH_MODIFICATION_PERIOD_N_ITEMS] = {512, 1024};
+typedef enum{
+    LIBLTE_RRC_MCCH_SIGNALLING_MCS_N2 = 0,
+    LIBLTE_RRC_MCCH_SIGNALLING_MCS_N7,
+    LIBLTE_RRC_MCCH_SIGNALLING_MCS_N13,
+    LIBLTE_RRC_MCCH_SIGNALLING_MCS_N19,
+    LIBLTE_RRC_MCCH_SIGNALLING_MCS_N_ITEMS,
+}LIBLTE_RRC_MCCH_SIGNALLING_MCS_ENUM;
+static const char liblte_rrc_mcch_signalling_mcs_r9_text[LIBLTE_RRC_MCCH_SIGNALLING_MCS_N_ITEMS][20] = {"2", "7", "13", "19"};
+static const uint8 liblte_rrc_mcch_signalling_mcs_r9_num[LIBLTE_RRC_MCCH_SIGNALLING_MCS_N_ITEMS] = {2, 7, 13, 19};
 // Structs
+typedef struct{
+    LIBLTE_RRC_NON_MBSFN_REGION_LENGTH_ENUM  non_mbsfn_region_length;
+    LIBLTE_RRC_MCCH_REPETITION_PERIOD_ENUM   mcch_repetition_period_r9;
+    LIBLTE_RRC_MCCH_MODIFICATION_PERIOD_ENUM mcch_modification_period_r9;
+    LIBLTE_RRC_MCCH_SIGNALLING_MCS_ENUM      signalling_mcs_r9;
+    uint8                                    mbsfn_area_id_r9;
+    uint8                                    notification_indicator_r9;
+    uint8                                    mcch_offset_r9;
+    uint8                                    sf_alloc_info_r9;
+}LIBLTE_RRC_MBSFN_AREA_INFO_STRUCT;
 // Functions
-// FIXME
+LIBLTE_ERROR_ENUM liblte_rrc_pack_mbsfn_area_info_ie(LIBLTE_RRC_MBSFN_AREA_INFO_STRUCT  *mbsfn_area_info,
+                                                     uint8                             **ie_ptr);
+LIBLTE_ERROR_ENUM liblte_rrc_unpack_mbsfn_area_info_ie(uint8                             **ie_ptr,
+                                                       LIBLTE_RRC_MBSFN_AREA_INFO_STRUCT  *mbsfn_area_info);
 
 /*********************************************************************
     IE Name: MBSFN Subframe Config
@@ -5197,8 +5246,16 @@ LIBLTE_ERROR_ENUM liblte_rrc_unpack_sys_info_block_type_8_ie(uint8              
 // Defines
 // Enums
 // Structs
+typedef struct{
+    LIBLTE_RRC_MBSFN_AREA_INFO_STRUCT           mbsfn_area_info_list_r9[LIBLTE_RRC_MAX_MBSFN_AREAS];
+    LIBLTE_RRC_MBSFN_NOTIFICATION_CONFIG_STRUCT mbms_notification_config;
+    uint8                                       mbsfn_area_info_list_r9_size;
+}LIBLTE_RRC_SYS_INFO_BLOCK_TYPE_13_STRUCT;
 // Functions
-// FIXME
+LIBLTE_ERROR_ENUM liblte_rrc_pack_sys_info_block_type_13_ie(LIBLTE_RRC_SYS_INFO_BLOCK_TYPE_13_STRUCT  *sib13,
+                                                            uint8                                    **ie_ptr);
+LIBLTE_ERROR_ENUM liblte_rrc_unpack_sys_info_block_type_13_ie(uint8                                    **ie_ptr,
+                                                              LIBLTE_RRC_SYS_INFO_BLOCK_TYPE_13_STRUCT  *sib13);
 
 /*******************************************************************************
                               MESSAGE DECLARATIONS
@@ -5491,14 +5548,15 @@ static const char liblte_rrc_sys_info_block_type_text[LIBLTE_RRC_SYS_INFO_BLOCK_
 static const uint8 liblte_rrc_sys_info_block_type_num[LIBLTE_RRC_SYS_INFO_BLOCK_TYPE_N_ITEMS] = {2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 1};
 // Structs
 typedef union{
-    LIBLTE_RRC_SYS_INFO_BLOCK_TYPE_1_STRUCT sib1;
-    LIBLTE_RRC_SYS_INFO_BLOCK_TYPE_2_STRUCT sib2;
-    LIBLTE_RRC_SYS_INFO_BLOCK_TYPE_3_STRUCT sib3;
-    LIBLTE_RRC_SYS_INFO_BLOCK_TYPE_4_STRUCT sib4;
-    LIBLTE_RRC_SYS_INFO_BLOCK_TYPE_5_STRUCT sib5;
-    LIBLTE_RRC_SYS_INFO_BLOCK_TYPE_6_STRUCT sib6;
-    LIBLTE_RRC_SYS_INFO_BLOCK_TYPE_7_STRUCT sib7;
-    LIBLTE_RRC_SYS_INFO_BLOCK_TYPE_8_STRUCT sib8;
+    LIBLTE_RRC_SYS_INFO_BLOCK_TYPE_1_STRUCT  sib1;
+    LIBLTE_RRC_SYS_INFO_BLOCK_TYPE_2_STRUCT  sib2;
+    LIBLTE_RRC_SYS_INFO_BLOCK_TYPE_3_STRUCT  sib3;
+    LIBLTE_RRC_SYS_INFO_BLOCK_TYPE_4_STRUCT  sib4;
+    LIBLTE_RRC_SYS_INFO_BLOCK_TYPE_5_STRUCT  sib5;
+    LIBLTE_RRC_SYS_INFO_BLOCK_TYPE_6_STRUCT  sib6;
+    LIBLTE_RRC_SYS_INFO_BLOCK_TYPE_7_STRUCT  sib7;
+    LIBLTE_RRC_SYS_INFO_BLOCK_TYPE_8_STRUCT  sib8;
+    LIBLTE_RRC_SYS_INFO_BLOCK_TYPE_13_STRUCT sib13;
 }LIBLTE_RRC_SYS_INFO_BLOCK_TYPE_UNION;
 typedef struct{
     LIBLTE_RRC_SYS_INFO_BLOCK_TYPE_UNION sib;

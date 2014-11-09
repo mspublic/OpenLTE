@@ -135,3 +135,6 @@ v00.17.00     Added more MME and RRC decoding and encoding and integrity protect
               and user file support, PDCP security, RRC security mode command,
               SRB2 setup, RRC connection reconfiguration, MME EMM attach, MME
               ESM default bearer setup, and M-TMSI assignment to LTE_fdd_enodeb.
+v00.18.00     Added SIB13 packing and printing for LTE_fdd_dl_file_scan and
+              pulled in a patch from Andrew Murphy to add SIB13 unpacking and
+              printing for LTE_fdd_dl_scan.

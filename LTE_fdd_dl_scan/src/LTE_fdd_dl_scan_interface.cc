@@ -1,6 +1,7 @@
 /*******************************************************************************
 
     Copyright 2013-2014 Ben Wojtowicz
+    Copyright 2014 Andrew Murphy (SIB13 printing)
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -27,6 +28,7 @@
     02/26/2013    Ben Wojtowicz    Created file
     07/21/2013    Ben Wojtowicz    Added support for decoding SIBs.
     06/15/2014    Ben Wojtowicz    Added PCAP support.
+    09/19/2014    Andrew Murphy    Added SIB13 printing.
     11/01/2014    Ben Wojtowicz    Using the latest LTE library.
 
 *******************************************************************************/
@@ -1260,6 +1262,56 @@ void LTE_fdd_dl_scan_interface::send_ctrl_sib8_decoded_msg(LTE_FDD_DL_SCAN_CHAN_
                     }
                 }
             }
+
+            tmp_msg += "\n";
+        }catch(boost::bad_lexical_cast &){
+            tmp_msg += "\n";
+        }
+        ctrl_socket->send(tmp_msg);
+    }
+}
+void LTE_fdd_dl_scan_interface::send_ctrl_sib13_decoded_msg(LTE_FDD_DL_SCAN_CHAN_DATA_STRUCT         *chan_data,
+                                                            LIBLTE_RRC_SYS_INFO_BLOCK_TYPE_13_STRUCT *sib13,
+                                                            uint32                                    sfn)
+{
+    boost::mutex::scoped_lock lock(connect_mutex);
+    std::string               tmp_msg;
+    uint32                    i;
+
+    if(ctrl_connected)
+    {
+        tmp_msg = "info sib13_decoded ";
+        try
+        {
+            tmp_msg += "freq=" + boost::lexical_cast<std::string>(liblte_interface_dl_earfcn_to_frequency(current_dl_earfcn)) + " ";
+            tmp_msg += "dl_earfcn=" + boost::lexical_cast<std::string>(current_dl_earfcn) + " ";
+            tmp_msg += "freq_offset=" + boost::lexical_cast<std::string>(chan_data->freq_offset) + " ";
+            tmp_msg += "phys_cell_id=" + boost::lexical_cast<std::string>(chan_data->N_id_cell) + " ";
+            tmp_msg += "sfn=" + boost::lexical_cast<std::string>(sfn) + " ";
+
+            for(i=0; i<sib13->mbsfn_area_info_list_r9_size; i++)
+            {
+                tmp_msg += "mbsfn_area_id_r9[" + boost::lexical_cast<std::string>(i) + "]=";
+                tmp_msg += boost::lexical_cast<std::string>((uint32)sib13->mbsfn_area_info_list_r9[i].mbsfn_area_id_r9) + " ";
+                tmp_msg += "non_mbsfn_region_length[" + boost::lexical_cast<std::string>(i) + "]=";
+                tmp_msg += boost::lexical_cast<std::string>(liblte_rrc_non_mbsfn_region_length_text[sib13->mbsfn_area_info_list_r9[i].non_mbsfn_region_length]) + " ";
+                tmp_msg += "notification_indicator_r9[" + boost::lexical_cast<std::string>(i) + "]=";
+                tmp_msg += boost::lexical_cast<std::string>((uint32)sib13->mbsfn_area_info_list_r9[i].notification_indicator_r9) + " ";
+                tmp_msg += "mcch_repetition_period_r9[" + boost::lexical_cast<std::string>(i) + "]=";
+                tmp_msg += boost::lexical_cast<std::string>(liblte_rrc_mcch_repetition_period_r9_text[sib13->mbsfn_area_info_list_r9[i].mcch_repetition_period_r9]) + " ";
+                tmp_msg += "mcch_offset_r9[" + boost::lexical_cast<std::string>(i) + "]=";
+                tmp_msg += boost::lexical_cast<std::string>((uint32)sib13->mbsfn_area_info_list_r9[i].mcch_offset_r9) + " ";
+                tmp_msg += "mcch_modification_period_r9[" + boost::lexical_cast<std::string>(i) + "]=";
+                tmp_msg += boost::lexical_cast<std::string>(liblte_rrc_mcch_modification_period_r9_text[sib13->mbsfn_area_info_list_r9[i].mcch_modification_period_r9]) + " ";
+                tmp_msg += "sf_alloc_info_r9[" + boost::lexical_cast<std::string>(i) + "]=";
+                tmp_msg += boost::lexical_cast<std::string>((uint32)sib13->mbsfn_area_info_list_r9[i].sf_alloc_info_r9) + " ";
+                tmp_msg += "signalling_mcs_r9[" + boost::lexical_cast<std::string>(i) + "]=";
+                tmp_msg += boost::lexical_cast<std::string>(liblte_rrc_mcch_signalling_mcs_r9_text[sib13->mbsfn_area_info_list_r9[i].signalling_mcs_r9]) + " ";
+            }
+
+            tmp_msg += "repetition_coeff=" + boost::lexical_cast<std::string>(liblte_rrc_notification_repetition_coeff_r9_text[sib13->mbms_notification_config.repetition_coeff]) + " ";
+            tmp_msg += "offset=" + boost::lexical_cast<std::string>((uint32)sib13->mbms_notification_config.offset) + " ";
+            tmp_msg += "sf_index=" + boost::lexical_cast<std::string>((uint32)sib13->mbms_notification_config.sf_index) + " ";
 
             tmp_msg += "\n";
         }catch(boost::bad_lexical_cast &){
