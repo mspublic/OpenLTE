@@ -29,6 +29,7 @@
     09/03/2014    Ben Wojtowicz    Added more decoding/encoding and fixed MCC
                                    and MNC packing.
     11/01/2014    Ben Wojtowicz    Added more decoding/encoding.
+    11/29/2014    Ben Wojtowicz    Added more decoding/encoding.
 
 *******************************************************************************/
 
@@ -4486,7 +4487,127 @@ LIBLTE_ERROR_ENUM liblte_mme_unpack_request_type_ie(uint8 **ie_ptr,
     Document Reference: 24.301 v10.2.0 Section 9.9.4.16
                         24.008 v10.2.0 Section 10.5.6.12
 *********************************************************************/
-// FIXME
+LIBLTE_ERROR_ENUM liblte_mme_pack_traffic_flow_template_ie(LIBLTE_MME_TRAFFIC_FLOW_TEMPLATE_STRUCT  *tft,
+                                                           uint8                                   **ie_ptr)
+{
+    LIBLTE_ERROR_ENUM err = LIBLTE_ERROR_INVALID_INPUTS;
+    uint32            idx;
+    uint32            i;
+    uint32            j;
+
+    if(tft    != NULL &&
+       ie_ptr != NULL)
+    {
+        idx            = 1;
+        (*ie_ptr)[idx] = (tft->tft_op_code & 0x07) << 5;
+        if(0 != tft->parameter_list_size)
+        {
+            (*ie_ptr)[idx] |= 0x10;
+        }
+        (*ie_ptr)[idx] |= tft->packet_filter_list_size & 0x0F;
+        idx++;
+
+        for(i=0; i<tft->packet_filter_list_size; i++)
+        {
+            (*ie_ptr)[idx]  = (tft->packet_filter_list[i].dir & 0x0F) << 4;
+            (*ie_ptr)[idx] |= tft->packet_filter_list[i].id & 0x0F;
+            idx++;
+            if(LIBLTE_MME_TFT_OPERATION_CODE_DELETE_PACKET_FILTERS_FROM_EXISTING_TFT != tft->tft_op_code)
+            {
+                (*ie_ptr)[idx] = tft->packet_filter_list[i].eval_precedence;
+                idx++;
+                (*ie_ptr)[idx] = tft->packet_filter_list[i].filter_size;
+                idx++;
+                for(j=0; j<tft->packet_filter_list[i].filter_size; j++)
+                {
+                    (*ie_ptr)[idx] = tft->packet_filter_list[i].filter[j];
+                    idx++;
+                }
+            }
+        }
+
+        for(i=0; i<tft->parameter_list_size; i++)
+        {
+            (*ie_ptr)[idx] = tft->parameter_list[i].id;
+            idx++;
+            (*ie_ptr)[idx] = tft->parameter_list[i].parameter_size;
+            idx++;
+            for(j=0; j<tft->parameter_list[i].parameter_size; j++)
+            {
+                (*ie_ptr)[idx] = tft->parameter_list[i].parameter[j];
+                idx++;
+            }
+        }
+        (*ie_ptr)[0]  = idx - 1;
+        *ie_ptr      += idx;
+
+        err = LIBLTE_SUCCESS;
+    }
+
+    return(err);
+}
+LIBLTE_ERROR_ENUM liblte_mme_unpack_traffic_flow_template_ie(uint8                                   **ie_ptr,
+                                                             LIBLTE_MME_TRAFFIC_FLOW_TEMPLATE_STRUCT  *tft)
+{
+    LIBLTE_ERROR_ENUM err = LIBLTE_ERROR_INVALID_INPUTS;
+    uint32            idx;
+    uint32            i;
+    uint32            j;
+    bool              param_list_present;
+
+    if(ie_ptr != NULL &&
+       tft    != NULL)
+    {
+        idx                          = 1;
+        tft->tft_op_code             = (LIBLTE_MME_TFT_OPERATION_CODE_ENUM)(((*ie_ptr)[idx] >> 5) & 0x07);
+        param_list_present           = ((*ie_ptr)[idx] >> 4) & 0x01;
+        tft->packet_filter_list_size = (*ie_ptr)[idx] & 0x0F;
+        idx++;
+
+        for(i=0; i<tft->packet_filter_list_size; i++)
+        {
+            tft->packet_filter_list[i].dir = (LIBLTE_MME_TFT_PACKET_FILTER_DIRECTION_ENUM)(((*ie_ptr)[idx] >> 4) & 0x0F);
+            tft->packet_filter_list[i].id  = (*ie_ptr)[idx] & 0x0F;
+            idx++;
+            if(LIBLTE_MME_TFT_OPERATION_CODE_DELETE_PACKET_FILTERS_FROM_EXISTING_TFT != tft->tft_op_code)
+            {
+                tft->packet_filter_list[i].eval_precedence = (*ie_ptr)[idx];
+                idx++;
+                tft->packet_filter_list[i].filter_size = (*ie_ptr)[idx];
+                idx++;
+                for(j=0; j<tft->packet_filter_list[i].filter_size; j++)
+                {
+                    tft->packet_filter_list[i].filter[j] = (*ie_ptr)[idx];
+                    idx++;
+                }
+            }
+        }
+
+        if(param_list_present)
+        {
+            tft->parameter_list_size = 0;
+            while(idx < (*ie_ptr)[0])
+            {
+                tft->parameter_list[tft->parameter_list_size].id = (*ie_ptr)[idx];
+                idx++;
+                tft->parameter_list[tft->parameter_list_size].parameter_size = (*ie_ptr)[idx];
+                idx++;
+                for(i=0; i<tft->parameter_list[tft->parameter_list_size].parameter_size; i++)
+                {
+                    tft->parameter_list[tft->parameter_list_size].parameter[i] = (*ie_ptr)[idx];
+                    idx++;
+                }
+                tft->parameter_list_size++;
+            }
+        }
+
+        *ie_ptr += (*ie_ptr)[0] + 1;
+
+        err = LIBLTE_SUCCESS;
+    }
+
+    return(err);
+}
 
 /*********************************************************************
     IE Name: Transaction Identifier
@@ -4576,24 +4697,29 @@ LIBLTE_ERROR_ENUM liblte_mme_parse_msg_header(LIBLTE_BYTE_MSG_STRUCT *msg,
         // Protocol Discriminator
         *pd = msg->msg[0] & 0x0F;
 
-        if(LIBLTE_MME_PD_EPS_SESSION_MANAGEMENT == *pd)
+        if(LIBLTE_MME_SECURITY_HDR_TYPE_SERVICE_REQUEST == sec_hdr_type)
         {
-            // Message Type
-            *msg_type = msg->msg[2];
+            *msg_type = LIBLTE_MME_SECURITY_HDR_TYPE_SERVICE_REQUEST;
         }else{
-            if(LIBLTE_MME_SECURITY_HDR_TYPE_PLAIN_NAS == sec_hdr_type)
+            if(LIBLTE_MME_PD_EPS_SESSION_MANAGEMENT == *pd)
             {
                 // Message Type
-                *msg_type = msg->msg[1];
+                *msg_type = msg->msg[2];
             }else{
-                // Protocol Discriminator
-                *pd = msg->msg[6] & 0x0F;
-
-                if(LIBLTE_MME_PD_EPS_SESSION_MANAGEMENT == *pd)
+                if(LIBLTE_MME_SECURITY_HDR_TYPE_PLAIN_NAS == sec_hdr_type)
                 {
-                    *msg_type = msg->msg[8];
+                    // Message Type
+                    *msg_type = msg->msg[1];
                 }else{
-                    *msg_type = msg->msg[7];
+                    // Protocol Discriminator
+                    *pd = msg->msg[6] & 0x0F;
+
+                    if(LIBLTE_MME_PD_EPS_SESSION_MANAGEMENT == *pd)
+                    {
+                        *msg_type = msg->msg[8];
+                    }else{
+                        *msg_type = msg->msg[7];
+                    }
                 }
             }
         }
@@ -7251,7 +7377,56 @@ LIBLTE_ERROR_ENUM liblte_mme_unpack_service_reject_msg(LIBLTE_BYTE_MSG_STRUCT   
 
     Document Reference: 24.301 v10.2.0 Section 8.2.25
 *********************************************************************/
-// FIXME
+LIBLTE_ERROR_ENUM liblte_mme_pack_service_request_msg(LIBLTE_MME_SERVICE_REQUEST_MSG_STRUCT *service_req,
+                                                      LIBLTE_BYTE_MSG_STRUCT                *msg)
+{
+    LIBLTE_ERROR_ENUM  err     = LIBLTE_ERROR_INVALID_INPUTS;
+    uint8             *msg_ptr = msg->msg;
+
+    if(service_req != NULL &&
+       msg         != NULL)
+    {
+        // Protocol Discriminator and Security Header Type
+        *msg_ptr = (LIBLTE_MME_SECURITY_HDR_TYPE_SERVICE_REQUEST << 4) | (LIBLTE_MME_PD_EPS_MOBILITY_MANAGEMENT);
+        msg_ptr++;
+
+        // KSI and Sequence Number
+        liblte_mme_pack_ksi_and_sequence_number_ie(&service_req->ksi_and_seq_num, &msg_ptr);
+
+        // Short MAC
+        liblte_mme_pack_short_mac_ie(service_req->short_mac, &msg_ptr);
+
+        // Fill in the number of bytes used
+        msg->N_bytes = msg_ptr - msg->msg;
+
+        err = LIBLTE_SUCCESS;
+    }
+
+    return(err);
+}
+LIBLTE_ERROR_ENUM liblte_mme_unpack_service_request_msg(LIBLTE_BYTE_MSG_STRUCT                *msg,
+                                                        LIBLTE_MME_SERVICE_REQUEST_MSG_STRUCT *service_req)
+{
+    LIBLTE_ERROR_ENUM  err     = LIBLTE_ERROR_INVALID_INPUTS;
+    uint8             *msg_ptr = msg->msg;
+
+    if(msg         != NULL &&
+       service_req != NULL)
+    {
+        // Protocol Discriminator and Security Header Type
+        msg_ptr++;
+
+        // KSI and Sequence Number
+        liblte_mme_unpack_ksi_and_sequence_number_ie(&msg_ptr, &service_req->ksi_and_seq_num);
+
+        // Short MAC
+        liblte_mme_unpack_short_mac_ie(&msg_ptr, &service_req->short_mac);
+
+        err = LIBLTE_SUCCESS;
+    }
+
+    return(err);
+}
 
 /*********************************************************************
     Message Name: Tracking Area Update Accept
@@ -8330,7 +8505,189 @@ LIBLTE_ERROR_ENUM liblte_mme_unpack_activate_dedicated_eps_bearer_context_reject
 
     Document Reference: 24.301 v10.2.0 Section 8.3.3
 *********************************************************************/
-// FIXME
+LIBLTE_ERROR_ENUM liblte_mme_pack_activate_dedicated_eps_bearer_context_request_msg(LIBLTE_MME_ACTIVATE_DEDICATED_EPS_BEARER_CONTEXT_REQUEST_MSG_STRUCT *act_ded_eps_bearer_context_req,
+                                                                                    LIBLTE_BYTE_MSG_STRUCT                                              *msg)
+{
+    LIBLTE_ERROR_ENUM  err     = LIBLTE_ERROR_INVALID_INPUTS;
+    uint8             *msg_ptr = msg->msg;
+
+    if(act_ded_eps_bearer_context_req != NULL &&
+       msg                            != NULL)
+    {
+        // Protocol Discriminator and EPS Bearer ID
+        *msg_ptr = (act_ded_eps_bearer_context_req->eps_bearer_id << 4) | (LIBLTE_MME_PD_EPS_SESSION_MANAGEMENT);
+        msg_ptr++;
+
+        // Procedure Transaction ID
+        *msg_ptr = act_ded_eps_bearer_context_req->proc_transaction_id;
+        msg_ptr++;
+
+        // Message Type
+        *msg_ptr = LIBLTE_MME_MSG_TYPE_ACTIVATE_DEDICATED_EPS_BEARER_CONTEXT_REQUEST;
+        msg_ptr++;
+
+        // Linked EPS Bearer Identity & Spare Half Octet
+        *msg_ptr = 0;
+        liblte_mme_pack_linked_eps_bearer_identity_ie(act_ded_eps_bearer_context_req->linked_eps_bearer_id, 0, &msg_ptr);
+        msg_ptr++;
+
+        // EPS QoS
+        liblte_mme_pack_eps_quality_of_service_ie(&act_ded_eps_bearer_context_req->eps_qos, &msg_ptr);
+
+        // TFT
+        liblte_mme_pack_traffic_flow_template_ie(&act_ded_eps_bearer_context_req->tft, &msg_ptr);
+
+        // Transaction Identifier
+        if(act_ded_eps_bearer_context_req->transaction_id_present)
+        {
+            *msg_ptr = LIBLTE_MME_TRANSACTION_IDENTIFIER_IEI;
+            msg_ptr++;
+            liblte_mme_pack_transaction_identifier_ie(&act_ded_eps_bearer_context_req->transaction_id, &msg_ptr);
+        }
+
+        // Negotiated QoS
+        if(act_ded_eps_bearer_context_req->negotiated_qos_present)
+        {
+            *msg_ptr = LIBLTE_MME_NEGOTIATED_QOS_IEI;
+            msg_ptr++;
+            liblte_mme_pack_quality_of_service_ie(&act_ded_eps_bearer_context_req->negotiated_qos, &msg_ptr);
+        }
+
+        // Negotiated LLC SAPI
+        if(act_ded_eps_bearer_context_req->llc_sapi_present)
+        {
+            *msg_ptr = LIBLTE_MME_NEGOTIATED_LLC_SAPI_IEI;
+            msg_ptr++;
+            liblte_mme_pack_llc_service_access_point_identifier_ie(act_ded_eps_bearer_context_req->llc_sapi, &msg_ptr);
+        }
+
+        // Radio Priority
+        if(act_ded_eps_bearer_context_req->radio_prio_present)
+        {
+            *msg_ptr = LIBLTE_MME_RADIO_PRIORITY_IEI << 4;
+            liblte_mme_pack_radio_priority_ie(act_ded_eps_bearer_context_req->radio_prio, 0, &msg_ptr);
+            msg_ptr++;
+        }
+
+        // Packet Flow Identifier
+        if(act_ded_eps_bearer_context_req->packet_flow_id_present)
+        {
+            *msg_ptr = LIBLTE_MME_PACKET_FLOW_IDENTIFIER_IEI;
+            msg_ptr++;
+            liblte_mme_pack_packet_flow_identifier_ie(act_ded_eps_bearer_context_req->packet_flow_id, &msg_ptr);
+        }
+
+        // Protocol Configuration Options
+        if(act_ded_eps_bearer_context_req->protocol_cnfg_opts_present)
+        {
+            *msg_ptr = LIBLTE_MME_PROTOCOL_CONFIGURATION_OPTIONS_IEI;
+            msg_ptr++;
+            liblte_mme_pack_protocol_config_options_ie(&act_ded_eps_bearer_context_req->protocol_cnfg_opts, &msg_ptr);
+        }
+
+        // Fill in the number of bytes used
+        msg->N_bytes = msg_ptr - msg->msg;
+
+        err = LIBLTE_SUCCESS;
+    }
+
+    return(err);
+}
+LIBLTE_ERROR_ENUM liblte_mme_unpack_activate_dedicated_eps_bearer_context_request_msg(LIBLTE_BYTE_MSG_STRUCT                                              *msg,
+                                                                                      LIBLTE_MME_ACTIVATE_DEDICATED_EPS_BEARER_CONTEXT_REQUEST_MSG_STRUCT *act_ded_eps_bearer_context_req)
+{
+    LIBLTE_ERROR_ENUM  err     = LIBLTE_ERROR_INVALID_INPUTS;
+    uint8             *msg_ptr = msg->msg;
+
+    if(msg                            != NULL &&
+       act_ded_eps_bearer_context_req != NULL)
+    {
+        // EPS Bearer ID
+        act_ded_eps_bearer_context_req->eps_bearer_id = (*msg_ptr >> 4);
+        msg_ptr++;
+
+        // Procedure Transaction ID
+        act_ded_eps_bearer_context_req->proc_transaction_id = *msg_ptr;
+        msg_ptr++;
+
+        // Skip Message Type
+        msg_ptr++;
+
+        // Linked Bearer Identity & Spare Half Octet
+        liblte_mme_unpack_linked_eps_bearer_identity_ie(&msg_ptr, 0, &act_ded_eps_bearer_context_req->linked_eps_bearer_id);
+        msg_ptr++;
+
+        // EPS QoS
+        liblte_mme_unpack_eps_quality_of_service_ie(&msg_ptr, &act_ded_eps_bearer_context_req->eps_qos);
+
+        // TFT
+        liblte_mme_unpack_traffic_flow_template_ie(&msg_ptr, &act_ded_eps_bearer_context_req->tft);
+
+        // Transaction Identifier
+        if(LIBLTE_MME_TRANSACTION_IDENTIFIER_IEI == *msg_ptr)
+        {
+            msg_ptr++;
+            liblte_mme_unpack_transaction_identifier_ie(&msg_ptr, &act_ded_eps_bearer_context_req->transaction_id);
+            act_ded_eps_bearer_context_req->transaction_id_present = true;
+        }else{
+            act_ded_eps_bearer_context_req->transaction_id_present = false;
+        }
+
+        // Negotiated QoS
+        if(LIBLTE_MME_NEGOTIATED_QOS_IEI == *msg_ptr)
+        {
+            msg_ptr++;
+            liblte_mme_unpack_quality_of_service_ie(&msg_ptr, &act_ded_eps_bearer_context_req->negotiated_qos);
+            act_ded_eps_bearer_context_req->negotiated_qos_present = true;
+        }else{
+            act_ded_eps_bearer_context_req->negotiated_qos_present = false;
+        }
+
+        // Negotiated LLC SAPI
+        if(LIBLTE_MME_NEGOTIATED_LLC_SAPI_IEI == *msg_ptr)
+        {
+            msg_ptr++;
+            liblte_mme_unpack_llc_service_access_point_identifier_ie(&msg_ptr, &act_ded_eps_bearer_context_req->llc_sapi);
+            act_ded_eps_bearer_context_req->llc_sapi_present = true;
+        }else{
+            act_ded_eps_bearer_context_req->llc_sapi_present = false;
+        }
+
+        // Radio Priority
+        if((LIBLTE_MME_RADIO_PRIORITY_IEI << 4) == (*msg_ptr & 0xF0))
+        {
+            liblte_mme_unpack_radio_priority_ie(&msg_ptr, 0, &act_ded_eps_bearer_context_req->radio_prio);
+            msg_ptr++;
+            act_ded_eps_bearer_context_req->radio_prio_present = true;
+        }else{
+            act_ded_eps_bearer_context_req->radio_prio_present = false;
+        }
+
+        // Packet Flow Identifier
+        if(LIBLTE_MME_PACKET_FLOW_IDENTIFIER_IEI == *msg_ptr)
+        {
+            msg_ptr++;
+            liblte_mme_unpack_packet_flow_identifier_ie(&msg_ptr, &act_ded_eps_bearer_context_req->packet_flow_id);
+            act_ded_eps_bearer_context_req->packet_flow_id_present = true;
+        }else{
+            act_ded_eps_bearer_context_req->packet_flow_id_present = false;
+        }
+
+        // Protocol Configuration Options
+        if(LIBLTE_MME_PROTOCOL_CONFIGURATION_OPTIONS_IEI == *msg_ptr)
+        {
+            msg_ptr++;
+            liblte_mme_unpack_protocol_config_options_ie(&msg_ptr, &act_ded_eps_bearer_context_req->protocol_cnfg_opts);
+            act_ded_eps_bearer_context_req->protocol_cnfg_opts_present = true;
+        }else{
+            act_ded_eps_bearer_context_req->protocol_cnfg_opts_present = false;
+        }
+
+        err = LIBLTE_SUCCESS;
+    }
+
+    return(err);
+}
 
 /*********************************************************************
     Message Name: Activate Default EPS Bearer Context Accept

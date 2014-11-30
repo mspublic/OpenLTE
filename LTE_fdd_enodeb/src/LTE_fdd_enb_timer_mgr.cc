@@ -28,6 +28,7 @@
     05/04/2014    Ben Wojtowicz    Created file
     06/15/2014    Ben Wojtowicz    Added millisecond resolution.
     08/03/2014    Ben Wojtowicz    Added an invalid timer id.
+    11/29/2014    Ben Wojtowicz    Added timer reset support.
 
 *******************************************************************************/
 
@@ -134,6 +135,20 @@ LTE_FDD_ENB_ERROR_ENUM LTE_fdd_enb_timer_mgr::stop_timer(uint32 timer_id)
     {
         delete (*iter).second;
         timer_map.erase(iter);
+        err = LTE_FDD_ENB_ERROR_NONE;
+    }
+
+    return(err);
+}
+LTE_FDD_ENB_ERROR_ENUM LTE_fdd_enb_timer_mgr::reset_timer(uint32 timer_id)
+{
+    boost::mutex::scoped_lock                       lock(timer_mutex);
+    std::map<uint32, LTE_fdd_enb_timer *>::iterator iter = timer_map.find(timer_id);
+    LTE_FDD_ENB_ERROR_ENUM                          err  = LTE_FDD_ENB_ERROR_TIMER_NOT_FOUND;
+
+    if(timer_map.end() != iter)
+    {
+        (*iter).second->reset();
         err = LTE_FDD_ENB_ERROR_NONE;
     }
 

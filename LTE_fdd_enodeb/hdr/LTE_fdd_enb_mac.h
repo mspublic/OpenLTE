@@ -29,6 +29,7 @@
     05/04/2014    Ben Wojtowicz    Added ULSCH handling.
     06/15/2014    Ben Wojtowicz    Added uplink scheduling and changed fn_combo
                                    to current_tti.
+    11/29/2014    Ben Wojtowicz    Using the byte message struct for SDUs.
 
 *******************************************************************************/
 
@@ -128,8 +129,8 @@ private:
     void handle_sdu_ready(LTE_FDD_ENB_MAC_SDU_READY_MSG_STRUCT *sdu_ready);
 
     // MAC PDU Handlers
-    void handle_ulsch_ccch_sdu(LTE_fdd_enb_user *user, uint32 lcid, LIBLTE_BIT_MSG_STRUCT *sdu);
-    void handle_ulsch_dcch_sdu(LTE_fdd_enb_user *user, uint32 lcid, LIBLTE_BIT_MSG_STRUCT *sdu);
+    void handle_ulsch_ccch_sdu(LTE_fdd_enb_user *user, uint32 lcid, LIBLTE_BYTE_MSG_STRUCT *sdu);
+    void handle_ulsch_dcch_sdu(LTE_fdd_enb_user *user, uint32 lcid, LIBLTE_BYTE_MSG_STRUCT *sdu);
     void handle_ulsch_ext_power_headroom_report(LTE_fdd_enb_user *user, LIBLTE_MAC_EXT_POWER_HEADROOM_CE_STRUCT *ext_power_headroom);
     void handle_ulsch_power_headroom_report(LTE_fdd_enb_user *user, LIBLTE_MAC_POWER_HEADROOM_CE_STRUCT *power_headroom);
     void handle_ulsch_c_rnti(LTE_fdd_enb_user **user, LIBLTE_MAC_C_RNTI_CE_STRUCT *c_rnti);

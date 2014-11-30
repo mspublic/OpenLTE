@@ -26,6 +26,9 @@
     ----------    -------------    --------------------------------------------
     08/03/2014    Ben Wojtowicz    Created file.
     11/01/2014    Ben Wojtowicz    Added integrity protection of messages.
+    11/29/2014    Ben Wojtowicz    Using the byte message struct for everything
+                                   except RRC SDUs and added user plan data
+                                   processing.
 
 *******************************************************************************/
 
@@ -128,24 +131,24 @@ typedef struct{
     uint32                count;
 }LIBLTE_PDCP_CONTROL_PDU_STRUCT;
 // Functions
-LIBLTE_ERROR_ENUM liblte_pdcp_pack_control_pdu(LIBLTE_PDCP_CONTROL_PDU_STRUCT *pdu_contents,
-                                               LIBLTE_BIT_MSG_STRUCT          *pdu);
-LIBLTE_ERROR_ENUM liblte_pdcp_pack_control_pdu(LIBLTE_PDCP_CONTROL_PDU_STRUCT *pdu_contents,
+LIBLTE_ERROR_ENUM liblte_pdcp_pack_control_pdu(LIBLTE_PDCP_CONTROL_PDU_STRUCT *contents,
+                                               LIBLTE_BYTE_MSG_STRUCT         *pdu);
+LIBLTE_ERROR_ENUM liblte_pdcp_pack_control_pdu(LIBLTE_PDCP_CONTROL_PDU_STRUCT *contents,
                                                LIBLTE_BIT_MSG_STRUCT          *data,
-                                               LIBLTE_BIT_MSG_STRUCT          *pdu);
-LIBLTE_ERROR_ENUM liblte_pdcp_pack_control_pdu(LIBLTE_PDCP_CONTROL_PDU_STRUCT *pdu_contents,
+                                               LIBLTE_BYTE_MSG_STRUCT         *pdu);
+LIBLTE_ERROR_ENUM liblte_pdcp_pack_control_pdu(LIBLTE_PDCP_CONTROL_PDU_STRUCT *contents,
                                                uint8                          *key_256,
                                                uint8                           direction,
                                                uint8                           rb_id,
-                                               LIBLTE_BIT_MSG_STRUCT          *pdu);
-LIBLTE_ERROR_ENUM liblte_pdcp_pack_control_pdu(LIBLTE_PDCP_CONTROL_PDU_STRUCT *pdu_contents,
+                                               LIBLTE_BYTE_MSG_STRUCT         *pdu);
+LIBLTE_ERROR_ENUM liblte_pdcp_pack_control_pdu(LIBLTE_PDCP_CONTROL_PDU_STRUCT *contents,
                                                LIBLTE_BIT_MSG_STRUCT          *data,
                                                uint8                          *key_256,
                                                uint8                           direction,
                                                uint8                           rb_id,
-                                               LIBLTE_BIT_MSG_STRUCT          *pdu);
-LIBLTE_ERROR_ENUM liblte_pdcp_unpack_control_pdu(LIBLTE_BIT_MSG_STRUCT          *pdu,
-                                                 LIBLTE_PDCP_CONTROL_PDU_STRUCT *pdu_contents);
+                                               LIBLTE_BYTE_MSG_STRUCT         *pdu);
+LIBLTE_ERROR_ENUM liblte_pdcp_unpack_control_pdu(LIBLTE_BYTE_MSG_STRUCT         *pdu,
+                                                 LIBLTE_PDCP_CONTROL_PDU_STRUCT *contents);
 
 /*********************************************************************
     PDU Type: User Plane PDCP Data PDU with long PDCP SN
@@ -155,8 +158,18 @@ LIBLTE_ERROR_ENUM liblte_pdcp_unpack_control_pdu(LIBLTE_BIT_MSG_STRUCT          
 // Defines
 // Enums
 // Structs
+typedef struct{
+    LIBLTE_BYTE_MSG_STRUCT data;
+    uint32                 count;
+}LIBLTE_PDCP_DATA_PDU_WITH_LONG_SN_STRUCT;
 // Functions
-// FIXME
+LIBLTE_ERROR_ENUM liblte_pdcp_pack_data_pdu_with_long_sn(LIBLTE_PDCP_DATA_PDU_WITH_LONG_SN_STRUCT *contents,
+                                                         LIBLTE_BYTE_MSG_STRUCT                   *pdu);
+LIBLTE_ERROR_ENUM liblte_pdcp_pack_data_pdu_with_long_sn(LIBLTE_PDCP_DATA_PDU_WITH_LONG_SN_STRUCT *contents,
+                                                         LIBLTE_BYTE_MSG_STRUCT                   *data,
+                                                         LIBLTE_BYTE_MSG_STRUCT                   *pdu);
+LIBLTE_ERROR_ENUM liblte_pdcp_unpack_data_pdu_with_long_sn(LIBLTE_BYTE_MSG_STRUCT                   *pdu,
+                                                           LIBLTE_PDCP_DATA_PDU_WITH_LONG_SN_STRUCT *contents);
 
 /*********************************************************************
     PDU Type: User Plane PDCP Data PDU with short PDCP SN

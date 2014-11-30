@@ -26,6 +26,9 @@
     ----------    -------------    --------------------------------------------
     08/03/2014    Ben Wojtowicz    Created file.
     11/01/2014    Ben Wojtowicz    Added integrity protection of messages.
+    11/29/2014    Ben Wojtowicz    Using the byte message struct for everything
+                                   except RRC SDUs and added user plane data
+                                   processing.
 
 *******************************************************************************/
 
@@ -61,13 +64,13 @@
     Document Reference: 36.323 v10.1.0 Section 6.2.2
 *********************************************************************/
 LIBLTE_ERROR_ENUM liblte_pdcp_pack_control_pdu(LIBLTE_PDCP_CONTROL_PDU_STRUCT *contents,
-                                               LIBLTE_BIT_MSG_STRUCT          *pdu)
+                                               LIBLTE_BYTE_MSG_STRUCT         *pdu)
 {
     return(liblte_pdcp_pack_control_pdu(contents, &contents->data, pdu));
 }
 LIBLTE_ERROR_ENUM liblte_pdcp_pack_control_pdu(LIBLTE_PDCP_CONTROL_PDU_STRUCT *contents,
                                                LIBLTE_BIT_MSG_STRUCT          *data,
-                                               LIBLTE_BIT_MSG_STRUCT          *pdu)
+                                               LIBLTE_BYTE_MSG_STRUCT         *pdu)
 {
     return(liblte_pdcp_pack_control_pdu(contents, data, NULL, 0, 0, pdu));
 }
@@ -75,7 +78,7 @@ LIBLTE_ERROR_ENUM liblte_pdcp_pack_control_pdu(LIBLTE_PDCP_CONTROL_PDU_STRUCT *c
                                                uint8                          *key_256,
                                                uint8                           direction,
                                                uint8                           rb_id,
-                                               LIBLTE_BIT_MSG_STRUCT          *pdu)
+                                               LIBLTE_BYTE_MSG_STRUCT         *pdu)
 {
     return(liblte_pdcp_pack_control_pdu(contents, &contents->data, key_256, direction, rb_id, pdu));
 }
@@ -84,72 +87,93 @@ LIBLTE_ERROR_ENUM liblte_pdcp_pack_control_pdu(LIBLTE_PDCP_CONTROL_PDU_STRUCT *c
                                                uint8                          *key_256,
                                                uint8                           direction,
                                                uint8                           rb_id,
-                                               LIBLTE_BIT_MSG_STRUCT          *pdu)
+                                               LIBLTE_BYTE_MSG_STRUCT         *pdu)
 {
     LIBLTE_ERROR_ENUM  err     = LIBLTE_ERROR_INVALID_INPUTS;
     uint8             *pdu_ptr = pdu->msg;
-    uint8              mac[4];
+    uint8             *data_ptr;
+    uint32             i;
 
     if(contents != NULL &&
        data     != NULL &&
        pdu      != NULL)
     {
         // Header
-        value_2_bits(0,               &pdu_ptr, 3);
-        value_2_bits(contents->count, &pdu_ptr, 5);
+        *pdu_ptr = contents->count & 0x1F;
+        pdu_ptr++;
+
+        // Byte align data
+        if((data->N_bits % 8) != 0)
+        {
+            for(i=0; i<8-(data->N_bits % 8); i++)
+            {
+                data->msg[data->N_bits + i] = 0;
+            }
+            data->N_bits += 8 - (data->N_bits % 8);
+        }
 
         // Data
-        memcpy(pdu_ptr, data->msg, data->N_bits);
-        pdu_ptr += data->N_bits;
-
-        // Byte align
-        if(((pdu_ptr - pdu->msg) % 8) != 0)
+        data_ptr = data->msg;
+        for(i=0; i<data->N_bits/8; i++)
         {
-            value_2_bits(0, &pdu_ptr, 8-((pdu_ptr - pdu->msg) % 8));
+            *pdu_ptr = liblte_bits_2_value(&data_ptr, 8);
+            pdu_ptr++;
         }
 
         // MAC
         if(NULL == key_256)
         {
-            value_2_bits(LIBLTE_PDCP_CONTROL_MAC_I, &pdu_ptr, 32);
+            *pdu_ptr = (LIBLTE_PDCP_CONTROL_MAC_I >> 24) & 0xFF;
+            pdu_ptr++;
+            *pdu_ptr = (LIBLTE_PDCP_CONTROL_MAC_I >> 16) & 0xFF;
+            pdu_ptr++;
+            *pdu_ptr = (LIBLTE_PDCP_CONTROL_MAC_I >> 8) & 0xFF;
+            pdu_ptr++;
+            *pdu_ptr = LIBLTE_PDCP_CONTROL_MAC_I & 0xFF;
+            pdu_ptr++;
         }else{
-            pdu->N_bits = pdu_ptr - pdu->msg;
+            pdu->N_bytes = pdu_ptr - pdu->msg;
             liblte_security_128_eia2(&key_256[16],
                                      contents->count,
                                      rb_id,
                                      direction,
-                                     pdu,
-                                     mac);
-            value_2_bits(mac[0], &pdu_ptr, 8);
-            value_2_bits(mac[1], &pdu_ptr, 8);
-            value_2_bits(mac[2], &pdu_ptr, 8);
-            value_2_bits(mac[3], &pdu_ptr, 8);
+                                     pdu->msg,
+                                     pdu->N_bytes,
+                                     pdu_ptr);
+            pdu_ptr += 4;
         }
 
-        // Fill in the number of bits used
-        pdu->N_bits = pdu_ptr - pdu->msg;
+        // Fill in the number of bytes used
+        pdu->N_bytes = pdu_ptr - pdu->msg;
 
         err = LIBLTE_SUCCESS;
     }
 
     return(err);
 }
-LIBLTE_ERROR_ENUM liblte_pdcp_unpack_control_pdu(LIBLTE_BIT_MSG_STRUCT          *pdu,
+LIBLTE_ERROR_ENUM liblte_pdcp_unpack_control_pdu(LIBLTE_BYTE_MSG_STRUCT         *pdu,
                                                  LIBLTE_PDCP_CONTROL_PDU_STRUCT *contents)
 {
     LIBLTE_ERROR_ENUM  err     = LIBLTE_ERROR_INVALID_INPUTS;
     uint8             *pdu_ptr = pdu->msg;
+    uint8             *data_ptr;
+    uint32             i;
 
     if(pdu      != NULL &&
        contents != NULL)
     {
         // Header
-        bits_2_value(&pdu_ptr, 3);
-        contents->count = bits_2_value(&pdu_ptr, 5);
+        contents->count = *pdu_ptr & 0x1F;
+        pdu_ptr++;
 
         // Data
-        memcpy(contents->data.msg, pdu_ptr, pdu->N_bits - 40);
-        contents->data.N_bits = pdu->N_bits - 40;
+        data_ptr = contents->data.msg;
+        for(i=0; i<pdu->N_bytes-5; i++)
+        {
+            liblte_value_2_bits(*pdu_ptr, &data_ptr, 8);
+            pdu_ptr++;
+        }
+        contents->data.N_bits = data_ptr - contents->data.msg;
 
         err = LIBLTE_SUCCESS;
     }
@@ -162,7 +186,64 @@ LIBLTE_ERROR_ENUM liblte_pdcp_unpack_control_pdu(LIBLTE_BIT_MSG_STRUCT          
 
     Document Reference: 36.323 v10.1.0 Section 6.2.3
 *********************************************************************/
-// FIXME
+LIBLTE_ERROR_ENUM liblte_pdcp_pack_data_pdu_with_long_sn(LIBLTE_PDCP_DATA_PDU_WITH_LONG_SN_STRUCT *contents,
+                                                         LIBLTE_BYTE_MSG_STRUCT                   *pdu)
+{
+    return(liblte_pdcp_pack_data_pdu_with_long_sn(contents, &contents->data, pdu));
+}
+LIBLTE_ERROR_ENUM liblte_pdcp_pack_data_pdu_with_long_sn(LIBLTE_PDCP_DATA_PDU_WITH_LONG_SN_STRUCT *contents,
+                                                         LIBLTE_BYTE_MSG_STRUCT                   *data,
+                                                         LIBLTE_BYTE_MSG_STRUCT                   *pdu)
+{
+    LIBLTE_ERROR_ENUM  err     = LIBLTE_ERROR_INVALID_INPUTS;
+    uint8             *pdu_ptr = pdu->msg;
+
+    if(contents != NULL &&
+       data     != NULL &&
+       pdu      != NULL)
+    {
+        // Header
+        *pdu_ptr = (LIBLTE_PDCP_D_C_DATA_PDU << 7) | ((contents->count >> 8) & 0x0F);
+        pdu_ptr++;
+        *pdu_ptr = contents->count & 0xFF;
+        pdu_ptr++;
+
+        // Data
+        memcpy(pdu_ptr, data->msg, data->N_bytes);
+        pdu_ptr += data->N_bytes;
+
+        // Fill in the number of bytes used
+        pdu->N_bytes = pdu_ptr - pdu->msg;
+
+        err = LIBLTE_SUCCESS;
+    }
+
+    return(err);
+}
+LIBLTE_ERROR_ENUM liblte_pdcp_unpack_data_pdu_with_long_sn(LIBLTE_BYTE_MSG_STRUCT                   *pdu,
+                                                           LIBLTE_PDCP_DATA_PDU_WITH_LONG_SN_STRUCT *contents)
+{
+    LIBLTE_ERROR_ENUM  err     = LIBLTE_ERROR_INVALID_INPUTS;
+    uint8             *pdu_ptr = pdu->msg;
+
+    if(pdu      != NULL &&
+       contents != NULL)
+    {
+        // Header
+        contents->count = (*pdu_ptr & 0x0F) << 8;
+        pdu_ptr++;
+        contents->count |= *pdu_ptr;
+        pdu_ptr++;
+
+        // Data
+        memcpy(contents->data.msg, pdu_ptr, pdu->N_bytes-2);
+        contents->data.N_bytes = pdu->N_bytes-2;
+
+        err = LIBLTE_SUCCESS;
+    }
+
+    return(err);
+}
 
 /*********************************************************************
     PDU Type: User Plane PDCP Data PDU with short PDCP SN

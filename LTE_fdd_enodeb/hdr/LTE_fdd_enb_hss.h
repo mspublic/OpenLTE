@@ -28,6 +28,8 @@
     08/03/2014    Ben Wojtowicz    Added authentication vector support.
     09/03/2014    Ben Wojtowicz    Added sequence number resynch.
     11/01/2014    Ben Wojtowicz    Added user file support.
+    11/29/2014    Ben Wojtowicz    Added support for regenerating eNodeB
+                                   security data.
 
 *******************************************************************************/
 
@@ -104,6 +106,7 @@ public:
     LTE_FDD_ENB_USER_ID_STRUCT* get_user_id_from_imei(uint64 imei);
     void generate_security_data(LTE_FDD_ENB_USER_ID_STRUCT *id, uint16 mcc, uint16 mnc);
     void security_resynch(LTE_FDD_ENB_USER_ID_STRUCT *id, uint16 mcc, uint16 mnc, uint8 *auts);
+    LTE_FDD_ENB_AUTHENTICATION_VECTOR_STRUCT* regenerate_enb_security_data(LTE_FDD_ENB_USER_ID_STRUCT *id, uint32 nas_count_ul);
     LTE_FDD_ENB_AUTHENTICATION_VECTOR_STRUCT* get_auth_vec(LTE_FDD_ENB_USER_ID_STRUCT *id);
 
     // User File

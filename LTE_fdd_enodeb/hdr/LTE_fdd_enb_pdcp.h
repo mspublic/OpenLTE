@@ -26,6 +26,7 @@
     ----------    -------------    --------------------------------------------
     11/09/2013    Ben Wojtowicz    Created file
     05/04/2014    Ben Wojtowicz    Added communication to RLC and RRC.
+    11/29/2014    Ben Wojtowicz    Added communication to IP gateway.
 
 *******************************************************************************/
 
@@ -87,16 +88,22 @@ private:
     // Communication
     void handle_rlc_msg(LTE_FDD_ENB_MESSAGE_STRUCT *msg);
     void handle_rrc_msg(LTE_FDD_ENB_MESSAGE_STRUCT *msg);
+    void handle_gw_msg(LTE_FDD_ENB_MESSAGE_STRUCT *msg);
     LTE_fdd_enb_msgq                   *rlc_comm_msgq;
     LTE_fdd_enb_msgq                   *rrc_comm_msgq;
+    LTE_fdd_enb_msgq                   *gw_comm_msgq;
     boost::interprocess::message_queue *pdcp_rlc_mq;
     boost::interprocess::message_queue *pdcp_rrc_mq;
+    boost::interprocess::message_queue *pdcp_gw_mq;
 
     // RLC Message Handlers
     void handle_pdu_ready(LTE_FDD_ENB_PDCP_PDU_READY_MSG_STRUCT *pdu_ready);
 
     // RRC Message Handlers
     void handle_sdu_ready(LTE_FDD_ENB_PDCP_SDU_READY_MSG_STRUCT *sdu_ready);
+
+    // GW Message Handlers
+    void handle_data_sdu_ready(LTE_FDD_ENB_PDCP_DATA_SDU_READY_MSG_STRUCT *data_sdu_ready);
 
     // Parameters
     boost::mutex                sys_info_mutex;

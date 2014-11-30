@@ -30,6 +30,8 @@
     09/03/2014    Ben Wojtowicz    Added sequence number resynch and key
                                    generation.
     11/01/2014    Ben Wojtowicz    Added user file support.
+    11/29/2014    Ben Wojtowicz    Added support for regenerating eNodeB
+                                   security data.
 
 *******************************************************************************/
 
@@ -456,6 +458,45 @@ void LTE_fdd_enb_hss::security_resynch(LTE_FDD_ENB_USER_ID_STRUCT *id,
             break;
         }
     }
+}
+LTE_FDD_ENB_AUTHENTICATION_VECTOR_STRUCT* LTE_fdd_enb_hss::regenerate_enb_security_data(LTE_FDD_ENB_USER_ID_STRUCT *id,
+                                                                                        uint32                      nas_count_ul)
+{
+    boost::mutex::scoped_lock                           lock(user_mutex);
+    std::list<LTE_FDD_ENB_HSS_USER_STRUCT *>::iterator  iter;
+    LTE_FDD_ENB_AUTHENTICATION_VECTOR_STRUCT           *auth_vec = NULL;
+
+    for(iter=user_list.begin(); iter!=user_list.end(); iter++)
+    {
+        if(id->imei == (*iter)->id.imei &&
+           id->imsi == (*iter)->id.imsi)
+        {
+            // Generate K_enb
+            liblte_security_generate_k_enb((*iter)->generated_data.k_asme,
+                                           nas_count_ul,
+                                           (*iter)->generated_data.k_enb);
+
+            // Generate K_rrc_enc and K_rrc_int
+            liblte_security_generate_k_rrc((*iter)->generated_data.k_enb,
+                                           LIBLTE_SECURITY_CIPHERING_ALGORITHM_ID_EEA0,
+                                           LIBLTE_SECURITY_INTEGRITY_ALGORITHM_ID_128_EIA2,
+                                           (*iter)->generated_data.auth_vec.k_rrc_enc,
+                                           (*iter)->generated_data.auth_vec.k_rrc_int);
+
+            // Generate K_up_enc and K_up_int
+            liblte_security_generate_k_up((*iter)->generated_data.k_enb,
+                                          LIBLTE_SECURITY_CIPHERING_ALGORITHM_ID_EEA0,
+                                          LIBLTE_SECURITY_INTEGRITY_ALGORITHM_ID_128_EIA2,
+                                          (*iter)->generated_data.k_up_enc,
+                                          (*iter)->generated_data.k_up_int);
+
+            auth_vec = &(*iter)->generated_data.auth_vec;
+
+            break;
+        }
+    }
+
+    return(auth_vec);
 }
 LTE_FDD_ENB_AUTHENTICATION_VECTOR_STRUCT* LTE_fdd_enb_hss::get_auth_vec(LTE_FDD_ENB_USER_ID_STRUCT *id)
 {

@@ -46,6 +46,8 @@
     09/19/2014    Andrew Murphy    Added SIB13 unpack.
     11/01/2014    Ben Wojtowicz    Added more decoding/encoding.
     11/09/2014    Ben Wojtowicz    Added SIB13 pack.
+    11/29/2014    Ben Wojtowicz    Fixed a bug in RRC connection reestablishment
+                                   UE identity.
 
 *******************************************************************************/
 
@@ -5795,15 +5797,6 @@ LIBLTE_ERROR_ENUM liblte_rrc_unpack_rrc_connection_reject_msg(LIBLTE_BIT_MSG_STR
 // Defines
 // Enums
 typedef enum{
-    LIBLTE_RRC_CON_REEST_REQ_UE_ID_TYPE_C_RNTI = 0,
-    LIBLTE_RRC_CON_REEST_REQ_UE_ID_TYPE_PHYS_CELL_ID,
-    LIBLTE_RRC_CON_REEST_REQ_UE_ID_TYPE_SHORT_MAC_I,
-    LIBLTE_RRC_CON_REEST_REQ_UE_ID_TYPE_N_ITEMS,
-}LIBLTE_RRC_CON_REEST_REQ_UE_ID_TYPE_ENUM;
-static const char liblte_rrc_con_reest_req_ue_id_type_text[LIBLTE_RRC_CON_REEST_REQ_UE_ID_TYPE_N_ITEMS][20] = {"C-RNTI",
-                                                                                                               "Phys Cell ID",
-                                                                                                               "Short MAC I"};
-typedef enum{
     LIBLTE_RRC_CON_REEST_REQ_CAUSE_RECONFIG_FAILURE = 0,
     LIBLTE_RRC_CON_REEST_REQ_CAUSE_HANDOVER_FAILURE,
     LIBLTE_RRC_CON_REEST_REQ_CAUSE_OTHER_FAILURE,
@@ -5815,15 +5808,14 @@ static const char liblte_rrc_con_reest_req_cause_text[LIBLTE_RRC_CON_REEST_REQ_C
                                                                                                       "Other Failure",
                                                                                                       "SPARE"};
 // Structs
-typedef union{
+typedef struct{
     uint16 c_rnti;
     uint16 phys_cell_id;
     uint16 short_mac_i;
-}LIBLTE_RRC_CON_REEST_REQ_UE_ID_UNION;
+}LIBLTE_RRC_CON_REEST_REQ_UE_ID_STRUCT;
 typedef struct{
-    LIBLTE_RRC_CON_REEST_REQ_UE_ID_UNION     ue_id;
-    LIBLTE_RRC_CON_REEST_REQ_UE_ID_TYPE_ENUM ue_id_type;
-    LIBLTE_RRC_CON_REEST_REQ_CAUSE_ENUM      cause;
+    LIBLTE_RRC_CON_REEST_REQ_UE_ID_STRUCT ue_id;
+    LIBLTE_RRC_CON_REEST_REQ_CAUSE_ENUM   cause;
 }LIBLTE_RRC_CONNECTION_REESTABLISHMENT_REQUEST_STRUCT;
 // Functions
 LIBLTE_ERROR_ENUM liblte_rrc_pack_rrc_connection_reestablishment_request_msg(LIBLTE_RRC_CONNECTION_REESTABLISHMENT_REQUEST_STRUCT *con_reest_req,

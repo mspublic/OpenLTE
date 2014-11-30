@@ -32,6 +32,8 @@
     09/03/2014    Ben Wojtowicz    Added ciphering and integrity algorithm
                                    storing.
     11/01/2014    Ben Wojtowicz    Added more MME support.
+    11/29/2014    Ben Wojtowicz    Added DRB setup/teardown and C-RNTI release
+                                   timer support.
 
 *******************************************************************************/
 
@@ -40,6 +42,8 @@
 *******************************************************************************/
 
 #include "LTE_fdd_enb_user.h"
+#include "LTE_fdd_enb_user_mgr.h"
+#include "LTE_fdd_enb_timer_mgr.h"
 #include "liblte_mme.h"
 #include <boost/lexical_cast.hpp>
 
@@ -65,7 +69,7 @@
 /********************************/
 /*    Constructor/Destructor    */
 /********************************/
-LTE_fdd_enb_user::LTE_fdd_enb_user(uint16 _c_rnti)
+LTE_fdd_enb_user::LTE_fdd_enb_user()
 {
     uint32 i;
 
@@ -73,8 +77,7 @@ LTE_fdd_enb_user::LTE_fdd_enb_user(uint16 _c_rnti)
     id_set      = false;
     guti_set    = false;
     temp_id     = 0;
-    c_rnti      = _c_rnti;
-    c_rnti_set  = true;
+    c_rnti_set  = false;
     ip_addr_set = false;
 
     // Security
@@ -97,7 +100,7 @@ LTE_fdd_enb_user::LTE_fdd_enb_user(uint16 _c_rnti)
     srb0 = new LTE_fdd_enb_rb(LTE_FDD_ENB_RB_SRB0, this);
     srb1 = NULL;
     srb2 = NULL;
-    for(i=0; i<8; i++)
+    for(i=0; i<31; i++)
     {
         drb[i] = NULL;
     }
@@ -123,7 +126,7 @@ LTE_fdd_enb_user::~LTE_fdd_enb_user()
     uint32 i;
 
     // Radio Bearers
-    for(i=0; i<8; i++)
+    for(i=0; i<31; i++)
     {
         delete drb[i];
     }
@@ -140,12 +143,15 @@ void LTE_fdd_enb_user::init(void)
     uint32 i;
 
     // Radio Bearers
-    for(i=0; i<8; i++)
+    for(i=0; i<31; i++)
     {
         delete drb[i];
+        drb[i] = NULL;
     }
     delete srb2;
+    srb2 = NULL;
     delete srb1;
+    srb1 = NULL;
     srb0->set_mme_procedure(LTE_FDD_ENB_MME_PROC_IDLE);
     srb0->set_mme_state(LTE_FDD_ENB_MME_STATE_IDLE);
     srb0->set_rrc_procedure(LTE_FDD_ENB_RRC_PROC_IDLE);
@@ -162,6 +168,10 @@ void LTE_fdd_enb_user::init(void)
     // MAC
     dl_ndi = false;
     ul_ndi = false;
+
+    // Identity
+    c_rnti     = 0xFFFF;
+    c_rnti_set = false;
 }
 
 /******************/
@@ -229,6 +239,13 @@ uint16 LTE_fdd_enb_user::get_c_rnti(void)
 bool LTE_fdd_enb_user::is_c_rnti_set(void)
 {
     return(c_rnti_set);
+}
+void LTE_fdd_enb_user::start_c_rnti_release_timer(void)
+{
+    LTE_fdd_enb_timer_mgr *timer_mgr = LTE_fdd_enb_timer_mgr::get_instance();
+    LTE_fdd_enb_timer_cb   timer_expiry_cb(&LTE_fdd_enb_timer_cb_wrapper<LTE_fdd_enb_user, &LTE_fdd_enb_user::handle_timer_expiry>, this);
+
+    timer_mgr->start_timer(500, timer_expiry_cb, &c_rnti_timer_id);
 }
 void LTE_fdd_enb_user::set_ip_addr(uint32 addr)
 {
@@ -420,6 +437,94 @@ LTE_FDD_ENB_ERROR_ENUM LTE_fdd_enb_user::get_srb2(LTE_fdd_enb_rb **rb)
 
     return(err);
 }
+LTE_FDD_ENB_ERROR_ENUM LTE_fdd_enb_user::setup_drb(LTE_FDD_ENB_RB_ENUM   drb_id,
+                                                   LTE_fdd_enb_rb      **rb)
+{
+    LTE_FDD_ENB_ERROR_ENUM err = LTE_FDD_ENB_ERROR_RB_ALREADY_SETUP;
+
+    if(LTE_FDD_ENB_RB_DRB1    <= drb_id &&
+       LTE_FDD_ENB_RB_N_ITEMS >  drb_id)
+    {
+        if(NULL == drb[drb_id-LTE_FDD_ENB_RB_DRB1])
+        {
+            drb[drb_id-LTE_FDD_ENB_RB_DRB1] = new LTE_fdd_enb_rb(LTE_FDD_ENB_RB_DRB1, this);
+            err                             = LTE_FDD_ENB_ERROR_NONE;
+        }
+        *rb = drb[drb_id-LTE_FDD_ENB_RB_DRB1];
+    }
+
+    return(err);
+}
+LTE_FDD_ENB_ERROR_ENUM LTE_fdd_enb_user::teardown_drb(LTE_FDD_ENB_RB_ENUM drb_id)
+{
+    LTE_FDD_ENB_ERROR_ENUM err = LTE_FDD_ENB_ERROR_RB_NOT_SETUP;
+
+    if(LTE_FDD_ENB_RB_DRB1    <= drb_id &&
+       LTE_FDD_ENB_RB_N_ITEMS >  drb_id)
+    {
+        if(NULL != drb[drb_id-LTE_FDD_ENB_RB_DRB1])
+        {
+            delete drb[drb_id-LTE_FDD_ENB_RB_DRB1];
+            err = LTE_FDD_ENB_ERROR_NONE;
+        }
+    }
+
+    return(err);
+}
+LTE_FDD_ENB_ERROR_ENUM LTE_fdd_enb_user::get_drb(LTE_FDD_ENB_RB_ENUM   drb_id,
+                                                 LTE_fdd_enb_rb      **rb)
+{
+    LTE_FDD_ENB_ERROR_ENUM err = LTE_FDD_ENB_ERROR_RB_NOT_SETUP;
+
+    if(LTE_FDD_ENB_RB_DRB1    <= drb_id &&
+       LTE_FDD_ENB_RB_N_ITEMS >  drb_id)
+    {
+        if(NULL != drb[drb_id-LTE_FDD_ENB_RB_DRB1])
+        {
+            err = LTE_FDD_ENB_ERROR_NONE;
+        }
+        *rb = drb[drb_id-LTE_FDD_ENB_RB_DRB1];
+    }
+
+    return(err);
+}
+void LTE_fdd_enb_user::copy_rb(LTE_fdd_enb_rb *rb)
+{
+    LTE_fdd_enb_rb *tmp_rb;
+
+    switch(rb->get_rb_id())
+    {
+    case LTE_FDD_ENB_RB_SRB0:
+        srb0->set_mme_procedure(rb->get_mme_procedure());
+        srb0->set_mme_state(rb->get_mme_state());
+        srb0->set_rrc_procedure(rb->get_rrc_procedure());
+        srb0->set_rrc_state(rb->get_rrc_state());
+        srb0->set_rrc_transaction_id(rb->get_rrc_transaction_id());
+        srb0->set_pdcp_config(rb->get_pdcp_config());
+        srb0->set_pdcp_rx_count(rb->get_pdcp_rx_count());
+        srb0->set_pdcp_tx_count(rb->get_pdcp_tx_count());
+        srb0->set_rlc_vrr(rb->get_rlc_vrr());
+        srb0->set_rlc_vrh(rb->get_rlc_vrh());
+        srb0->set_rlc_vta(rb->get_rlc_vta());
+        srb0->set_rlc_vts(rb->get_rlc_vts());
+        srb0->set_con_res_id(rb->get_con_res_id());
+        srb0->set_send_con_res_id(rb->get_send_con_res_id());
+        srb0->set_qos(rb->get_qos());
+        break;
+    case LTE_FDD_ENB_RB_SRB1:
+        setup_srb1(&tmp_rb);
+        memcpy(srb1, rb, sizeof(LTE_fdd_enb_rb));
+        break;
+    case LTE_FDD_ENB_RB_SRB2:
+        setup_srb2(&tmp_rb);
+        memcpy(srb2, rb, sizeof(LTE_fdd_enb_rb));
+        break;
+    case LTE_FDD_ENB_RB_DRB1:
+        setup_drb(LTE_FDD_ENB_RB_DRB1, &tmp_rb);
+        memcpy(&drb[0], rb, sizeof(LTE_fdd_enb_rb));
+        break;
+    }
+}
 
 /*************/
 /*    MME    */
@@ -511,4 +616,14 @@ void LTE_fdd_enb_user::set_delete_at_idle(bool dai)
 bool LTE_fdd_enb_user::get_delete_at_idle(void)
 {
     return(delete_at_idle);
+}
+void LTE_fdd_enb_user::handle_timer_expiry(uint32 timer_id)
+{
+    LTE_fdd_enb_user_mgr *user_mgr = LTE_fdd_enb_user_mgr::get_instance();
+
+    if(timer_id == c_rnti_timer_id)
+    {
+        c_rnti_set = false;
+        user_mgr->release_c_rnti(c_rnti);
+    }
 }

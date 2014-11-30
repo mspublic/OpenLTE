@@ -26,6 +26,8 @@
     ----------    -------------    --------------------------------------------
     06/15/2014    Ben Wojtowicz    Created file.
     08/03/2014    Ben Wojtowicz    Added NACK support.
+    11/29/2014    Ben Wojtowicz    Added UMD support and using the byte message
+                                   struct.
 
 *******************************************************************************/
 
@@ -245,9 +247,30 @@ static const char liblte_rlc_e2_field_text[LIBLTE_RLC_E2_FIELD_N_ITEMS][20] = {"
 *********************************************************************/
 // Defines
 // Enums
+typedef enum{
+    LIBLTE_RLC_UMD_SN_SIZE_5_BITS = 0,
+    LIBLTE_RLC_UMD_SN_SIZE_10_BITS,
+    LIBLTE_RLC_UMD_SN_SIZE_N_ITEMS,
+}LIBLTE_RLC_UMD_SN_SIZE_ENUM;
+static const char liblte_rlc_umd_sn_size_text[LIBLTE_RLC_UMD_SN_SIZE_N_ITEMS][20] = {"5 bits", "10 bits"};
 // Structs
+typedef struct{
+    LIBLTE_RLC_FI_FIELD_ENUM    fi;
+    LIBLTE_RLC_UMD_SN_SIZE_ENUM sn_size;
+    uint16                      sn;
+}LIBLTE_RLC_UMD_PDU_HEADER_STRUCT;
+typedef struct{
+    LIBLTE_RLC_UMD_PDU_HEADER_STRUCT hdr;
+    LIBLTE_BYTE_MSG_STRUCT           data;
+}LIBLTE_RLC_UMD_PDU_STRUCT;
 // Functions
-// FIXME
+LIBLTE_ERROR_ENUM liblte_rlc_pack_umd_pdu(LIBLTE_RLC_UMD_PDU_STRUCT *umd,
+                                          LIBLTE_BYTE_MSG_STRUCT    *pdu);
+LIBLTE_ERROR_ENUM liblte_rlc_pack_umd_pdu(LIBLTE_RLC_UMD_PDU_STRUCT *umd,
+                                          LIBLTE_BYTE_MSG_STRUCT    *data,
+                                          LIBLTE_BYTE_MSG_STRUCT    *pdu);
+LIBLTE_ERROR_ENUM liblte_rlc_unpack_umd_pdu(LIBLTE_BYTE_MSG_STRUCT    *pdu,
+                                            LIBLTE_RLC_UMD_PDU_STRUCT *umd);
 
 /*********************************************************************
     PDU Type: Acknowledged Mode Data PDU
@@ -266,15 +289,15 @@ typedef struct{
 }LIBLTE_RLC_AMD_PDU_HEADER_STRUCT;
 typedef struct{
     LIBLTE_RLC_AMD_PDU_HEADER_STRUCT hdr;
-    LIBLTE_BIT_MSG_STRUCT            data;
+    LIBLTE_BYTE_MSG_STRUCT           data;
 }LIBLTE_RLC_AMD_PDU_STRUCT;
 // Functions
 LIBLTE_ERROR_ENUM liblte_rlc_pack_amd_pdu(LIBLTE_RLC_AMD_PDU_STRUCT *amd,
-                                          LIBLTE_BIT_MSG_STRUCT     *pdu);
+                                          LIBLTE_BYTE_MSG_STRUCT    *pdu);
 LIBLTE_ERROR_ENUM liblte_rlc_pack_amd_pdu(LIBLTE_RLC_AMD_PDU_STRUCT *amd,
-                                          LIBLTE_BIT_MSG_STRUCT     *data,
-                                          LIBLTE_BIT_MSG_STRUCT     *pdu);
-LIBLTE_ERROR_ENUM liblte_rlc_unpack_amd_pdu(LIBLTE_BIT_MSG_STRUCT     *pdu,
+                                          LIBLTE_BYTE_MSG_STRUCT    *data,
+                                          LIBLTE_BYTE_MSG_STRUCT    *pdu);
+LIBLTE_ERROR_ENUM liblte_rlc_unpack_amd_pdu(LIBLTE_BYTE_MSG_STRUCT    *pdu,
                                             LIBLTE_RLC_AMD_PDU_STRUCT *amd);
 
 /*********************************************************************
@@ -292,8 +315,8 @@ typedef struct{
 }LIBLTE_RLC_STATUS_PDU_STRUCT;
 // Functions
 LIBLTE_ERROR_ENUM liblte_rlc_pack_status_pdu(LIBLTE_RLC_STATUS_PDU_STRUCT *status,
-                                             LIBLTE_BIT_MSG_STRUCT        *pdu);
-LIBLTE_ERROR_ENUM liblte_rlc_unpack_status_pdu(LIBLTE_BIT_MSG_STRUCT        *pdu,
+                                             LIBLTE_BYTE_MSG_STRUCT       *pdu);
+LIBLTE_ERROR_ENUM liblte_rlc_unpack_status_pdu(LIBLTE_BYTE_MSG_STRUCT       *pdu,
                                                LIBLTE_RLC_STATUS_PDU_STRUCT *status);
 
 #endif /* __LIBLTE_RLC_H__ */

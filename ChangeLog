@@ -135,6 +135,17 @@ v00.17.00     Added more MME and RRC decoding and encoding and integrity protect
               and user file support, PDCP security, RRC security mode command,
               SRB2 setup, RRC connection reconfiguration, MME EMM attach, MME
               ESM default bearer setup, and M-TMSI assignment to LTE_fdd_enodeb.
-v00.18.00     Added SIB13 packing and printing for LTE_fdd_dl_file_scan and
+v00.17.01     Added SIB13 packing and printing for LTE_fdd_dl_file_scan and
               pulled in a patch from Andrew Murphy to add SIB13 unpacking and
               printing for LTE_fdd_dl_scan.
+v00.18.00     Added IP packet support to LTE_fdd_enodeb.  Specifically, added the
+              liblte prefix to value_2_bits and bits_2_value, converted everything
+              except PHY and RRC to byte message struct, added more MME decoding
+              and encoding, added PDCP user plane support, added RLC UMD support,
+              and fixed a bug in RRC connection reesablishment pack and unpack
+              (thanks to Paul Sutton for tracking this down) in the LTE library.
+              Added regeneration of eNodeB security data in HSS, service request,
+              service reject, and activate dedicated EPS bearer context request
+              support in MME, timer reset, and IP gateway support, using the
+              latest LTE library, and refactored C-RNTI assignement and release
+              in LTE_fdd_enodeb.

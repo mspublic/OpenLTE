@@ -33,6 +33,10 @@
     09/03/2014    Ben Wojtowicz    Added more MME states and ability to store
                                    the contention resolution identity.
     11/01/2014    Ben Wojtowicz    Added more MME states and PDCP security.
+    11/29/2014    Ben Wojtowicz    Added more DRB support, MME states, MME
+                                   procedures, and PDCP configs, moved almost
+                                   everything to byte messages structs, added
+                                   IP gateway and RLC UMD support.
 
 *******************************************************************************/
 
@@ -67,19 +71,25 @@ typedef enum{
     LTE_FDD_ENB_RB_SRB0 = 0,
     LTE_FDD_ENB_RB_SRB1,
     LTE_FDD_ENB_RB_SRB2,
+    LTE_FDD_ENB_RB_DRB1,
+    LTE_FDD_ENB_RB_DRB2,
     LTE_FDD_ENB_RB_N_ITEMS,
 }LTE_FDD_ENB_RB_ENUM;
 static const char LTE_fdd_enb_rb_text[LTE_FDD_ENB_RB_N_ITEMS][20] = {"SRB0",
                                                                      "SRB1",
-                                                                     "SRB2"};
+                                                                     "SRB2",
+                                                                     "DRB1",
+                                                                     "DRB2"};
 
 typedef enum{
     LTE_FDD_ENB_MME_PROC_IDLE = 0,
     LTE_FDD_ENB_MME_PROC_ATTACH,
+    LTE_FDD_ENB_MME_PROC_SERVICE_REQUEST,
     LTE_FDD_ENB_MME_PROC_N_ITEMS,
 }LTE_FDD_ENB_MME_PROC_ENUM;
 static const char LTE_fdd_enb_mme_proc_text[LTE_FDD_ENB_MME_PROC_N_ITEMS][100] = {"IDLE",
-                                                                                  "ATTACH"};
+                                                                                  "ATTACH",
+                                                                                  "SERVICE REQUEST"};
 
 typedef enum{
     LTE_FDD_ENB_MME_STATE_IDLE = 0,
@@ -93,6 +103,7 @@ typedef enum{
     LTE_FDD_ENB_MME_STATE_ESM_INFO_TRANSFER,
     LTE_FDD_ENB_MME_STATE_ATTACH_ACCEPT,
     LTE_FDD_ENB_MME_STATE_ATTACHED,
+    LTE_FDD_ENB_MME_STATE_SETUP_DRB,
     LTE_FDD_ENB_MME_STATE_N_ITEMS,
 }LTE_FDD_ENB_MME_STATE_ENUM;
 static const char LTE_fdd_enb_mme_state_text[LTE_FDD_ENB_MME_STATE_N_ITEMS][100] = {"IDLE",
@@ -105,7 +116,8 @@ static const char LTE_fdd_enb_mme_state_text[LTE_FDD_ENB_MME_STATE_N_ITEMS][100]
                                                                                     "RRC SECURITY",
                                                                                     "ESM INFO TRANSFER",
                                                                                     "ATTACH ACCEPT",
-                                                                                    "ATTACHED"};
+                                                                                    "ATTACHED",
+                                                                                    "SETUP DRB"};
 
 typedef enum{
     LTE_FDD_ENB_RRC_PROC_IDLE = 0,
@@ -132,10 +144,12 @@ static const char LTE_fdd_enb_rrc_state_text[LTE_FDD_ENB_RRC_STATE_N_ITEMS][100]
 typedef enum{
     LTE_FDD_ENB_PDCP_CONFIG_N_A = 0,
     LTE_FDD_ENB_PDCP_CONFIG_SECURITY,
+    LTE_FDD_ENB_PDCP_CONFIG_LONG_SN,
     LTE_FDD_ENB_PDCP_CONFIG_N_ITEMS,
 }LTE_FDD_ENB_PDCP_CONFIG_ENUM;
 static const char LTE_fdd_enb_pdcp_config_text[LTE_FDD_ENB_PDCP_CONFIG_N_ITEMS][20] = {"N/A",
-                                                                                       "SECURITY"};
+                                                                                       "SECURITY",
+                                                                                       "LONG SN"};
 
 typedef enum{
     LTE_FDD_ENB_RLC_CONFIG_TM = 0,
@@ -163,7 +177,7 @@ static const char LTE_fdd_enb_qos_text[LTE_FDD_ENB_QOS_N_ITEMS][20] = {"None",
 
 typedef struct{
     uint32 tti_frequency;
-    uint32 bits_per_subfn;
+    uint32 bytes_per_subfn;
 }LTE_FDD_ENB_QOS_STRUCT;
 
 /*******************************************************************************
@@ -179,6 +193,11 @@ public:
 
     // Identity
     LTE_FDD_ENB_RB_ENUM get_rb_id(void);
+
+    // GW
+    void queue_gw_data_msg(LIBLTE_BYTE_MSG_STRUCT *gw_data);
+    LTE_FDD_ENB_ERROR_ENUM get_next_gw_data_msg(LIBLTE_BYTE_MSG_STRUCT **gw_data);
+    LTE_FDD_ENB_ERROR_ENUM delete_next_gw_data_msg(void);
 
     // MME
     void queue_mme_nas_msg(LIBLTE_BYTE_MSG_STRUCT *nas_msg);
@@ -208,12 +227,15 @@ public:
     void set_rrc_transaction_id(uint8 transaction_id);
 
     // PDCP
-    void queue_pdcp_pdu(LIBLTE_BIT_MSG_STRUCT *pdu);
-    LTE_FDD_ENB_ERROR_ENUM get_next_pdcp_pdu(LIBLTE_BIT_MSG_STRUCT **pdu);
+    void queue_pdcp_pdu(LIBLTE_BYTE_MSG_STRUCT *pdu);
+    LTE_FDD_ENB_ERROR_ENUM get_next_pdcp_pdu(LIBLTE_BYTE_MSG_STRUCT **pdu);
     LTE_FDD_ENB_ERROR_ENUM delete_next_pdcp_pdu(void);
     void queue_pdcp_sdu(LIBLTE_BIT_MSG_STRUCT *sdu);
     LTE_FDD_ENB_ERROR_ENUM get_next_pdcp_sdu(LIBLTE_BIT_MSG_STRUCT **sdu);
     LTE_FDD_ENB_ERROR_ENUM delete_next_pdcp_sdu(void);
+    void queue_pdcp_data_sdu(LIBLTE_BYTE_MSG_STRUCT *sdu);
+    LTE_FDD_ENB_ERROR_ENUM get_next_pdcp_data_sdu(LIBLTE_BYTE_MSG_STRUCT **sdu);
+    LTE_FDD_ENB_ERROR_ENUM delete_next_pdcp_data_sdu(void);
     void set_pdcp_config(LTE_FDD_ENB_PDCP_CONFIG_ENUM config);
     LTE_FDD_ENB_PDCP_CONFIG_ENUM get_pdcp_config(void);
     uint32 get_pdcp_rx_count(void);
@@ -222,11 +244,11 @@ public:
     void set_pdcp_tx_count(uint32 tx_count);
 
     // RLC
-    void queue_rlc_pdu(LIBLTE_BIT_MSG_STRUCT *pdu);
-    LTE_FDD_ENB_ERROR_ENUM get_next_rlc_pdu(LIBLTE_BIT_MSG_STRUCT **pdu);
+    void queue_rlc_pdu(LIBLTE_BYTE_MSG_STRUCT *pdu);
+    LTE_FDD_ENB_ERROR_ENUM get_next_rlc_pdu(LIBLTE_BYTE_MSG_STRUCT **pdu);
     LTE_FDD_ENB_ERROR_ENUM delete_next_rlc_pdu(void);
-    void queue_rlc_sdu(LIBLTE_BIT_MSG_STRUCT *sdu);
-    LTE_FDD_ENB_ERROR_ENUM get_next_rlc_sdu(LIBLTE_BIT_MSG_STRUCT **sdu);
+    void queue_rlc_sdu(LIBLTE_BYTE_MSG_STRUCT *sdu);
+    LTE_FDD_ENB_ERROR_ENUM get_next_rlc_sdu(LIBLTE_BYTE_MSG_STRUCT **sdu);
     LTE_FDD_ENB_ERROR_ENUM delete_next_rlc_sdu(void);
     LTE_FDD_ENB_RLC_CONFIG_ENUM get_rlc_config(void);
     uint16 get_rlc_vrr(void);
@@ -235,9 +257,9 @@ public:
     uint16 get_rlc_vrmr(void);
     uint16 get_rlc_vrh(void);
     void set_rlc_vrh(uint16 vrh);
-    void rlc_add_to_reception_buffer(LIBLTE_RLC_AMD_PDU_STRUCT *amd_pdu);
-    void rlc_get_reception_buffer_status(LIBLTE_RLC_STATUS_PDU_STRUCT *status);
-    LTE_FDD_ENB_ERROR_ENUM rlc_reassemble(LIBLTE_BIT_MSG_STRUCT *sdu);
+    void rlc_add_to_am_reception_buffer(LIBLTE_RLC_AMD_PDU_STRUCT *amd_pdu);
+    void rlc_get_am_reception_buffer_status(LIBLTE_RLC_STATUS_PDU_STRUCT *status);
+    LTE_FDD_ENB_ERROR_ENUM rlc_am_reassemble(LIBLTE_BYTE_MSG_STRUCT *sdu);
     uint16 get_rlc_vta(void);
     void set_rlc_vta(uint16 vta);
     uint16 get_rlc_vtms(void);
@@ -248,10 +270,19 @@ public:
     void rlc_start_t_poll_retransmit(void);
     void rlc_stop_t_poll_retransmit(void);
     void handle_t_poll_retransmit_timer_expiry(uint32 timer_id);
+    void set_rlc_vruh(uint16 vruh);
+    uint16 get_rlc_vruh(void);
+    void set_rlc_vrur(uint16 vrur);
+    uint16 get_rlc_vrur(void);
+    uint16 get_rlc_um_window_size(void);
+    void rlc_add_to_um_reception_buffer(LIBLTE_RLC_UMD_PDU_STRUCT *umd_pdu);
+    LTE_FDD_ENB_ERROR_ENUM rlc_um_reassemble(LIBLTE_BYTE_MSG_STRUCT *sdu);
+    void set_rlc_vtus(uint16 vtus);
+    uint16 get_rlc_vtus(void);
 
     // MAC
-    void queue_mac_sdu(LIBLTE_BIT_MSG_STRUCT *sdu);
-    LTE_FDD_ENB_ERROR_ENUM get_next_mac_sdu(LIBLTE_BIT_MSG_STRUCT **sdu);
+    void queue_mac_sdu(LIBLTE_BYTE_MSG_STRUCT *sdu);
+    LTE_FDD_ENB_ERROR_ENUM get_next_mac_sdu(LIBLTE_BYTE_MSG_STRUCT **sdu);
     LTE_FDD_ENB_ERROR_ENUM delete_next_mac_sdu(void);
     LTE_FDD_ENB_MAC_CONFIG_ENUM get_mac_config(void);
     void start_ul_sched_timer(uint32 m_seconds);
@@ -262,16 +293,30 @@ public:
     void set_send_con_res_id(bool send_con_res_id);
     bool get_send_con_res_id(void);
 
+    // DRB
+    void set_eps_bearer_id(uint32 ebi);
+    uint32 get_eps_bearer_id(void);
+    void set_lc_id(uint32 _lc_id);
+    uint32 get_lc_id(void);
+    void set_drb_id(uint8 _drb_id);
+    uint8 get_drb_id(void);
+    void set_log_chan_group(uint8 lcg);
+    uint8 get_log_chan_group(void);
+
     // Generic
     void set_qos(LTE_FDD_ENB_QOS_ENUM _qos);
     LTE_FDD_ENB_QOS_ENUM get_qos(void);
     uint32 get_qos_tti_freq(void);
-    uint32 get_qos_bits_per_subfn(void);
+    uint32 get_qos_bytes_per_subfn(void);
 
 private:
     // Identity
     LTE_FDD_ENB_RB_ENUM  rb;
     LTE_fdd_enb_user    *user;
+
+    // GW
+    boost::mutex                        gw_data_msg_queue_mutex;
+    std::list<LIBLTE_BYTE_MSG_STRUCT *> gw_data_msg_queue;
 
     // MME
     boost::mutex                        mme_nas_msg_queue_mutex;
@@ -289,40 +334,55 @@ private:
     uint8                               rrc_transaction_id;
 
     // PDCP
-    boost::mutex                       pdcp_pdu_queue_mutex;
-    boost::mutex                       pdcp_sdu_queue_mutex;
-    std::list<LIBLTE_BIT_MSG_STRUCT *> pdcp_pdu_queue;
-    std::list<LIBLTE_BIT_MSG_STRUCT *> pdcp_sdu_queue;
-    LTE_FDD_ENB_PDCP_CONFIG_ENUM       pdcp_config;
-    uint32                             pdcp_rx_count;
-    uint32                             pdcp_tx_count;
+    boost::mutex                        pdcp_pdu_queue_mutex;
+    boost::mutex                        pdcp_sdu_queue_mutex;
+    boost::mutex                        pdcp_data_sdu_queue_mutex;
+    std::list<LIBLTE_BYTE_MSG_STRUCT *> pdcp_pdu_queue;
+    std::list<LIBLTE_BIT_MSG_STRUCT *>  pdcp_sdu_queue;
+    std::list<LIBLTE_BYTE_MSG_STRUCT *> pdcp_data_sdu_queue;
+    LTE_FDD_ENB_PDCP_CONFIG_ENUM        pdcp_config;
+    uint32                              pdcp_rx_count;
+    uint32                              pdcp_tx_count;
 
     // RLC
     boost::mutex                                  rlc_pdu_queue_mutex;
     boost::mutex                                  rlc_sdu_queue_mutex;
-    std::list<LIBLTE_BIT_MSG_STRUCT *>            rlc_pdu_queue;
-    std::list<LIBLTE_BIT_MSG_STRUCT *>            rlc_sdu_queue;
-    std::map<uint16, LIBLTE_BIT_MSG_STRUCT *>     rlc_reception_buffer;
-    std::map<uint16, LIBLTE_RLC_AMD_PDU_STRUCT *> rlc_transmission_buffer;
+    std::list<LIBLTE_BYTE_MSG_STRUCT *>           rlc_pdu_queue;
+    std::list<LIBLTE_BYTE_MSG_STRUCT *>           rlc_sdu_queue;
+    std::map<uint16, LIBLTE_BYTE_MSG_STRUCT *>    rlc_am_reception_buffer;
+    std::map<uint16, LIBLTE_RLC_AMD_PDU_STRUCT *> rlc_am_transmission_buffer;
+    std::map<uint16, LIBLTE_BYTE_MSG_STRUCT *>    rlc_um_reception_buffer;
     LTE_FDD_ENB_RLC_CONFIG_ENUM                   rlc_config;
     uint16                                        rlc_vrr;
     uint16                                        rlc_vrmr;
     uint16                                        rlc_vrh;
-    uint16                                        rlc_first_segment_sn;
-    uint16                                        rlc_last_segment_sn;
+    uint16                                        rlc_first_am_segment_sn;
+    uint16                                        rlc_last_am_segment_sn;
     uint16                                        rlc_vta;
     uint16                                        rlc_vtms;
     uint16                                        rlc_vts;
+    uint16                                        rlc_vruh;
+    uint16                                        rlc_vrur;
+    uint16                                        rlc_um_window_size;
+    uint16                                        rlc_first_um_segment_sn;
+    uint16                                        rlc_last_um_segment_sn;
+    uint16                                        rlc_vtus;
 
     // MAC
-    boost::mutex                       mac_sdu_queue_mutex;
-    std::list<LIBLTE_BIT_MSG_STRUCT *> mac_sdu_queue;
-    LTE_FDD_ENB_MAC_CONFIG_ENUM        mac_config;
-    uint64                             mac_con_res_id;
-    uint32                             ul_sched_timer_m_seconds;
-    uint32                             ul_sched_timer_id;
-    uint32                             t_poll_retransmit_timer_id;
-    bool                               mac_send_con_res_id;
+    boost::mutex                        mac_sdu_queue_mutex;
+    std::list<LIBLTE_BYTE_MSG_STRUCT *> mac_sdu_queue;
+    LTE_FDD_ENB_MAC_CONFIG_ENUM         mac_config;
+    uint64                              mac_con_res_id;
+    uint32                              ul_sched_timer_m_seconds;
+    uint32                              ul_sched_timer_id;
+    uint32                              t_poll_retransmit_timer_id;
+    bool                                mac_send_con_res_id;
+
+    // DRB
+    uint32 eps_bearer_id;
+    uint32 lc_id;
+    uint8  drb_id;
+    uint8  log_chan_group;
 
     // Generic
     void queue_msg(LIBLTE_BIT_MSG_STRUCT *msg, boost::mutex *mutex, std::list<LIBLTE_BIT_MSG_STRUCT *> *queue);

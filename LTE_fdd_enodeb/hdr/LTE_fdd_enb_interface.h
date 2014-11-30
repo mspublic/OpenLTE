@@ -39,6 +39,7 @@
                                    DL center frequency and UL center frequency.
     11/01/2014    Ben Wojtowicz    Added parameters for IP address assignment,
                                    DNS address, config file, and user file.
+    11/29/2014    Ben Wojtowicz    Added support for the IP gateway.
 
 *******************************************************************************/
 
@@ -140,6 +141,7 @@ typedef enum{
     LTE_FDD_ENB_DEBUG_LEVEL_PDCP,
     LTE_FDD_ENB_DEBUG_LEVEL_RRC,
     LTE_FDD_ENB_DEBUG_LEVEL_MME,
+    LTE_FDD_ENB_DEBUG_LEVEL_GW,
     LTE_FDD_ENB_DEBUG_LEVEL_USER,
     LTE_FDD_ENB_DEBUG_LEVEL_RB,
     LTE_FDD_ENB_DEBUG_LEVEL_TIMER,
@@ -153,6 +155,7 @@ static const char LTE_fdd_enb_debug_level_text[LTE_FDD_ENB_DEBUG_LEVEL_N_ITEMS][
                                                                                         "pdcp",
                                                                                         "rrc",
                                                                                         "mme",
+                                                                                        "gw",
                                                                                         "user",
                                                                                         "rb",
                                                                                         "timer",

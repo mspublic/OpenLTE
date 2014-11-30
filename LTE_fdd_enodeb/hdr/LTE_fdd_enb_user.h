@@ -31,6 +31,8 @@
     09/03/2014    Ben Wojtowicz    Added ciphering and integrity algorithm
                                    storing.
     11/01/2014    Ben Wojtowicz    Added more MME support and RRC key storage.
+    11/29/2014    Ben Wojtowicz    Added DRB setup/teardown and C-RNTI release
+                                   timer support.
 
 *******************************************************************************/
 
@@ -89,7 +91,7 @@ class LTE_fdd_enb_user
 {
 public:
     // Constructor/Destructor
-    LTE_fdd_enb_user(uint16 _c_rnti);
+    LTE_fdd_enb_user();
     ~LTE_fdd_enb_user();
 
     // Initialize
@@ -111,6 +113,7 @@ public:
     void set_c_rnti(uint16 _c_rnti);
     uint16 get_c_rnti(void);
     bool is_c_rnti_set(void);
+    void start_c_rnti_release_timer(void);
     void set_ip_addr(uint32 addr);
     uint32 get_ip_addr(void);
     bool is_ip_addr_set(void);
@@ -145,6 +148,10 @@ public:
     LTE_FDD_ENB_ERROR_ENUM setup_srb2(LTE_fdd_enb_rb **rb);
     LTE_FDD_ENB_ERROR_ENUM teardown_srb2(void);
     LTE_FDD_ENB_ERROR_ENUM get_srb2(LTE_fdd_enb_rb **rb);
+    LTE_FDD_ENB_ERROR_ENUM setup_drb(LTE_FDD_ENB_RB_ENUM drb_id, LTE_fdd_enb_rb **rb);
+    LTE_FDD_ENB_ERROR_ENUM teardown_drb(LTE_FDD_ENB_RB_ENUM drb_id);
+    LTE_FDD_ENB_ERROR_ENUM get_drb(LTE_FDD_ENB_RB_ENUM drb_id, LTE_fdd_enb_rb **rb);
+    void copy_rb(LTE_fdd_enb_rb *rb);
 
     // MME
     void set_emm_cause(uint8 cause);
@@ -179,6 +186,7 @@ private:
     LIBLTE_MME_EPS_MOBILE_ID_GUTI_STRUCT guti;
     uint64                               temp_id;
     uint32                               c_rnti;
+    uint32                               c_rnti_timer_id;
     uint32                               ip_addr;
     bool                                 id_set;
     bool                                 guti_set;
@@ -203,7 +211,7 @@ private:
     LTE_fdd_enb_rb *srb0;
     LTE_fdd_enb_rb *srb1;
     LTE_fdd_enb_rb *srb2;
-    LTE_fdd_enb_rb *drb[8];
+    LTE_fdd_enb_rb *drb[31];
 
     // MME
     LIBLTE_MME_PROTOCOL_CONFIG_OPTIONS_STRUCT protocol_cnfg_opts;
@@ -219,6 +227,7 @@ private:
     bool ul_ndi;
 
     // Generic
+    void handle_timer_expiry(uint32 timer_id);
     bool delete_at_idle;
 };
 

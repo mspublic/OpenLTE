@@ -29,6 +29,7 @@
     05/04/2014    Ben Wojtowicz    Added control element handling.
     06/15/2014    Ben Wojtowicz    Added support for padding LCIDs and breaking
                                    out max and min buffer sizes for BSRs.
+    11/29/2014    Ben Wojtowicz    Using byte message struct for SDUs.
 
 *******************************************************************************/
 
@@ -339,7 +340,7 @@ typedef union{
     LIBLTE_MAC_EXT_POWER_HEADROOM_CE_STRUCT          ext_power_headroom;
     LIBLTE_MAC_MCH_SCHEDULING_INFORMATION_CE_STRUCT  mch_sched_info;
     LIBLTE_MAC_ACTIVATION_DEACTIVATION_CE_STRUCT     act_deact;
-    LIBLTE_BIT_MSG_STRUCT                            sdu;
+    LIBLTE_BYTE_MSG_STRUCT                           sdu;
 }LIBLTE_MAC_SUBHEADER_PAYLOAD_UNION;
 typedef struct{
     LIBLTE_MAC_SUBHEADER_PAYLOAD_UNION payload;

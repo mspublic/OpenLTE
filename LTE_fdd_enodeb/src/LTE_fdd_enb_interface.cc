@@ -40,6 +40,7 @@
                                    DL center frequency and UL center frequency.
     11/01/2014    Ben Wojtowicz    Added parameters for IP address assignment,
                                    DNS address, config file, and user file.
+    11/29/2014    Ben Wojtowicz    Added support for the IP gateway.
 
 *******************************************************************************/
 
@@ -50,6 +51,7 @@
 #include "LTE_fdd_enb_interface.h"
 #include "LTE_fdd_enb_cnfg_db.h"
 #include "LTE_fdd_enb_hss.h"
+#include "LTE_fdd_enb_gw.h"
 #include "LTE_fdd_enb_mme.h"
 #include "LTE_fdd_enb_rrc.h"
 #include "LTE_fdd_enb_pdcp.h"
@@ -918,9 +920,11 @@ void LTE_fdd_enb_interface::handle_start(void)
     LTE_fdd_enb_pdcp          *pdcp    = LTE_fdd_enb_pdcp::get_instance();
     LTE_fdd_enb_rrc           *rrc     = LTE_fdd_enb_rrc::get_instance();
     LTE_fdd_enb_mme           *mme     = LTE_fdd_enb_mme::get_instance();
+    LTE_fdd_enb_gw            *gw      = LTE_fdd_enb_gw::get_instance();
     LTE_fdd_enb_phy           *phy     = LTE_fdd_enb_phy::get_instance();
     LTE_fdd_enb_radio         *radio   = LTE_fdd_enb_radio::get_instance();
     LTE_FDD_ENB_ERROR_ENUM     err;
+    char                       err_str[LTE_FDD_ENB_MAX_LINE_SIZE];
 
     if(!started)
     {
@@ -941,6 +945,8 @@ void LTE_fdd_enb_interface::handle_start(void)
         boost::interprocess::message_queue::remove("rrc_pdcp_mq");
         boost::interprocess::message_queue::remove("rrc_mme_mq");
         boost::interprocess::message_queue::remove("mme_rrc_mq");
+        boost::interprocess::message_queue::remove("pdcp_gw_mq");
+        boost::interprocess::message_queue::remove("gw_pdcp_mq");
         boost::interprocess::message_queue phy_mac_mq(boost::interprocess::create_only,
                                                       "phy_mac_mq",
                                                       100,
@@ -981,31 +987,45 @@ void LTE_fdd_enb_interface::handle_start(void)
                                                       "mme_rrc_mq",
                                                       100,
                                                       sizeof(LTE_FDD_ENB_MESSAGE_STRUCT *));
+        boost::interprocess::message_queue pdcp_gw_mq(boost::interprocess::create_only,
+                                                      "pdcp_gw_mq",
+                                                      100,
+                                                      sizeof(LTE_FDD_ENB_MESSAGE_STRUCT *));
+        boost::interprocess::message_queue gw_pdcp_mq(boost::interprocess::create_only,
+                                                      "gw_pdcp_mq",
+                                                      100,
+                                                      sizeof(LTE_FDD_ENB_MESSAGE_STRUCT *));
 
         // Start layers
-        phy->start(this);
-        mac->start(this);
-        rlc->start();
-        pdcp->start();
-        rrc->start();
-        mme->start();
-        err = radio->start();
+        err = gw->start(err_str);
         if(LTE_FDD_ENB_ERROR_NONE == err)
         {
-            send_ctrl_error_msg(err, "");
+            phy->start(this);
+            mac->start(this);
+            rlc->start();
+            pdcp->start();
+            rrc->start();
+            mme->start();
+            err = radio->start();
+            if(LTE_FDD_ENB_ERROR_NONE == err)
+            {
+                send_ctrl_error_msg(err, "");
+            }else{
+                start_mutex.lock();
+                started = false;
+                start_mutex.unlock();
+
+                phy->stop();
+                mac->stop();
+                rlc->stop();
+                pdcp->stop();
+                rrc->stop();
+                mme->stop();
+
+                send_ctrl_error_msg(err, "");
+            }
         }else{
-            start_mutex.lock();
-            started = false;
-            start_mutex.unlock();
-
-            phy->stop();
-            mac->stop();
-            rlc->stop();
-            pdcp->stop();
-            rrc->stop();
-            mme->stop();
-
-            send_ctrl_error_msg(err, "");
+            send_ctrl_error_msg(err, err_str);
         }
     }else{
         send_ctrl_error_msg(LTE_FDD_ENB_ERROR_ALREADY_STARTED, "");
@@ -1021,6 +1041,7 @@ void LTE_fdd_enb_interface::handle_stop(void)
     LTE_fdd_enb_pdcp          *pdcp  = LTE_fdd_enb_pdcp::get_instance();
     LTE_fdd_enb_rrc           *rrc   = LTE_fdd_enb_rrc::get_instance();
     LTE_fdd_enb_mme           *mme   = LTE_fdd_enb_mme::get_instance();
+    LTE_fdd_enb_gw            *gw    = LTE_fdd_enb_gw::get_instance();
     LTE_FDD_ENB_ERROR_ENUM     err;
 
     if(started)
@@ -1038,6 +1059,7 @@ void LTE_fdd_enb_interface::handle_stop(void)
             pdcp->stop();
             rrc->stop();
             mme->stop();
+            gw->stop();
 
             // Send a message to all inter-layer message_queues to unblock receive
             LTE_fdd_enb_msgq::send("phy_mac_mq",
@@ -1090,6 +1112,16 @@ void LTE_fdd_enb_interface::handle_stop(void)
                                    LTE_FDD_ENB_DEST_LAYER_ANY,
                                    NULL,
                                    0);
+            LTE_fdd_enb_msgq::send("pdcp_gw_mq",
+                                   LTE_FDD_ENB_MESSAGE_TYPE_KILL,
+                                   LTE_FDD_ENB_DEST_LAYER_ANY,
+                                   NULL,
+                                   0);
+            LTE_fdd_enb_msgq::send("gw_pdcp_mq",
+                                   LTE_FDD_ENB_MESSAGE_TYPE_KILL,
+                                   LTE_FDD_ENB_DEST_LAYER_ANY,
+                                   NULL,
+                                   0);
             sleep(1);
 
             boost::interprocess::message_queue::remove("phy_mac_mq");
@@ -1102,6 +1134,8 @@ void LTE_fdd_enb_interface::handle_stop(void)
             boost::interprocess::message_queue::remove("rrc_pdcp_mq");
             boost::interprocess::message_queue::remove("rrc_mme_mq");
             boost::interprocess::message_queue::remove("mme_rrc_mq");
+            boost::interprocess::message_queue::remove("pdcp_gw_mq");
+            boost::interprocess::message_queue::remove("gw_pdcp_mq");
 
             // Cleanup all layers
             LTE_fdd_enb_radio::cleanup();
@@ -1111,6 +1145,7 @@ void LTE_fdd_enb_interface::handle_stop(void)
             LTE_fdd_enb_pdcp::cleanup();
             LTE_fdd_enb_rrc::cleanup();
             LTE_fdd_enb_mme::cleanup();
+            LTE_fdd_enb_gw::cleanup();
 
             send_ctrl_error_msg(LTE_FDD_ENB_ERROR_NONE, "");
         }else{

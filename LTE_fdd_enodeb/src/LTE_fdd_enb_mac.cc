@@ -40,6 +40,7 @@
     09/03/2014    Ben Wojtowicz    Combined the contention resolution ID and
                                    the first downlink RLC message.
     11/01/2014    Ben Wojtowicz    Added NDI toggling.
+    11/29/2014    Ben Wojtowicz    Using the byte message struct for SDUs.
 
 *******************************************************************************/
 
@@ -416,6 +417,9 @@ void LTE_fdd_enb_mac::handle_pusch_decode(LTE_FDD_ENB_PUSCH_DECODE_MSG_STRUCT *p
     // Find the user
     if(LTE_FDD_ENB_ERROR_NONE == user_mgr->find_user(pusch_decode->rnti, &user))
     {
+        // Reset the C-RNTI release timer
+        user_mgr->reset_c_rnti_timer(pusch_decode->rnti);
+
         interface->send_debug_msg(LTE_FDD_ENB_DEBUG_TYPE_INFO,
                                   LTE_FDD_ENB_DEBUG_LEVEL_MAC,
                                   __FILE__,
@@ -478,7 +482,7 @@ void LTE_fdd_enb_mac::handle_sdu_ready(LTE_FDD_ENB_MAC_SDU_READY_MSG_STRUCT *sdu
     LTE_fdd_enb_user             *user;
     LIBLTE_MAC_PDU_STRUCT         mac_pdu;
     LIBLTE_PHY_ALLOCATION_STRUCT  alloc;
-    LIBLTE_BIT_MSG_STRUCT        *sdu;
+    LIBLTE_BYTE_MSG_STRUCT       *sdu;
     uint32                        current_tti;
 
     if(LTE_FDD_ENB_ERROR_NONE == sdu_ready->rb->get_next_mac_sdu(&sdu))
@@ -568,9 +572,9 @@ void LTE_fdd_enb_mac::handle_sdu_ready(LTE_FDD_ENB_MAC_SDU_READY_MSG_STRUCT *sdu
 /**************************/
 /*    MAC PDU Handlers    */
 /**************************/
-void LTE_fdd_enb_mac::handle_ulsch_ccch_sdu(LTE_fdd_enb_user      *user,
-                                            uint32                 lcid,
-                                            LIBLTE_BIT_MSG_STRUCT *sdu)
+void LTE_fdd_enb_mac::handle_ulsch_ccch_sdu(LTE_fdd_enb_user       *user,
+                                            uint32                  lcid,
+                                            LIBLTE_BYTE_MSG_STRUCT *sdu)
 {
     LTE_fdd_enb_rb                       *rb = NULL;
     LTE_FDD_ENB_RLC_PDU_READY_MSG_STRUCT  rlc_pdu_ready;
@@ -593,15 +597,15 @@ void LTE_fdd_enb_mac::handle_ulsch_ccch_sdu(LTE_fdd_enb_user      *user,
 
         // Save the contention resolution ID
         con_res_id = 0;
-        for(i=0; i<sdu->N_bits; i++)
+        for(i=0; i<sdu->N_bytes; i++)
         {
-            con_res_id <<= 1;
+            con_res_id <<= 8;
             con_res_id  |= sdu->msg[i];
         }
         rb->set_con_res_id(con_res_id);
         rb->set_send_con_res_id(true);
 
-        // Queue the SDU for RLC
+        // Queue the PDU for RLC
         rb->queue_rlc_pdu(sdu);
 
         // Signal RLC
@@ -623,9 +627,9 @@ void LTE_fdd_enb_mac::handle_ulsch_ccch_sdu(LTE_fdd_enb_user      *user,
                                   lcid);
     }
 }
-void LTE_fdd_enb_mac::handle_ulsch_dcch_sdu(LTE_fdd_enb_user      *user,
-                                            uint32                 lcid,
-                                            LIBLTE_BIT_MSG_STRUCT *sdu)
+void LTE_fdd_enb_mac::handle_ulsch_dcch_sdu(LTE_fdd_enb_user       *user,
+                                            uint32                  lcid,
+                                            LIBLTE_BYTE_MSG_STRUCT *sdu)
 {
     LTE_fdd_enb_rb                       *rb = NULL;
     LTE_FDD_ENB_RLC_PDU_READY_MSG_STRUCT  rlc_pdu_ready;
@@ -648,7 +652,7 @@ void LTE_fdd_enb_mac::handle_ulsch_dcch_sdu(LTE_fdd_enb_user      *user,
             user->get_srb1(&rb);
         }else if(LTE_FDD_ENB_RB_SRB2 == lcid){
             user->get_srb2(&rb);
-        }else{
+        }else if(LTE_FDD_ENB_ERROR_NONE != user->get_drb((LTE_FDD_ENB_RB_ENUM)lcid, &rb)){
             interface->send_debug_msg(LTE_FDD_ENB_DEBUG_TYPE_ERROR,
                                       LTE_FDD_ENB_DEBUG_LEVEL_MAC,
                                       __FILE__,
@@ -760,15 +764,18 @@ void LTE_fdd_enb_mac::construct_random_access_response(uint8  preamble,
                                                        uint16 timing_adv,
                                                        uint32 current_tti)
 {
-    LTE_fdd_enb_user_mgr         *user_mgr  = LTE_fdd_enb_user_mgr::get_instance();
+    LTE_fdd_enb_user_mgr         *user_mgr = LTE_fdd_enb_user_mgr::get_instance();
+    LTE_fdd_enb_user             *user     = NULL;
     LIBLTE_MAC_RAR_STRUCT         rar;
     LIBLTE_PHY_ALLOCATION_STRUCT  dl_alloc;
     LIBLTE_PHY_ALLOCATION_STRUCT  ul_alloc;
 
-    // Allocate a C-RNTI and a user
-    if(LTE_FDD_ENB_ERROR_NONE == user_mgr->get_free_c_rnti(&rar.temp_c_rnti) &&
-       LTE_FDD_ENB_ERROR_NONE == user_mgr->add_user(rar.temp_c_rnti))
+    // Allocate a user
+    if(LTE_FDD_ENB_ERROR_NONE == user_mgr->add_user(&user))
     {
+        // Save C-RNTI
+        rar.temp_c_rnti = user->get_c_rnti();
+
         // Fill in the DL allocation
         dl_alloc.pre_coder_type = LIBLTE_PHY_PRE_CODER_TYPE_TX_DIVERSITY;
         dl_alloc.mod_type       = LIBLTE_PHY_MODULATION_TYPE_QPSK;
@@ -1070,6 +1077,10 @@ void LTE_fdd_enb_mac::scheduler(void)
                 dl_sched_queue.pop_front();
                 delete dl_sched;
             }
+        }else if(dl_sched->current_tti < sched_dl_subfr[sched_cur_dl_subfn].current_tti){
+            // Remove DL schedule from queue
+            dl_sched_queue.pop_front();
+            delete dl_sched;
         }else{
             sched_out_of_headroom = true;
         }

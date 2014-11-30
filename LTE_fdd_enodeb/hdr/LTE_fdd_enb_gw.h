@@ -17,26 +17,34 @@
 
 *******************************************************************************
 
-    File: liblte_common.cc
+    File: LTE_fdd_enb_gw.h
 
-    Description: Contains all the implementations for the LTE common library.
+    Description: Contains all the definitions for the LTE FDD eNodeB
+                 IP gateway.
 
     Revision History
     ----------    -------------    --------------------------------------------
-    08/03/2014    Ben Wojtowicz    Created file.
-    11/29/2014    Ben Wojtowicz    Added liblte prefix to value_2_bits and
-                                   bits_2_value.
+    11/29/2014    Ben Wojtowicz    Created file
 
 *******************************************************************************/
+
+#ifndef __LTE_FDD_ENB_GW_H__
+#define __LTE_FDD_ENB_GW_H__
 
 /*******************************************************************************
                               INCLUDES
 *******************************************************************************/
 
-#include "liblte_common.h"
+#include "LTE_fdd_enb_interface.h"
+#include "LTE_fdd_enb_msgq.h"
 
 /*******************************************************************************
                               DEFINES
+*******************************************************************************/
+
+
+/*******************************************************************************
+                              FORWARD DECLARATIONS
 *******************************************************************************/
 
 
@@ -46,48 +54,45 @@
 
 
 /*******************************************************************************
-                              GLOBAL VARIABLES
+                              CLASS DECLARATIONS
 *******************************************************************************/
 
-
-/*******************************************************************************
-                              FUNCTIONS
-*******************************************************************************/
-
-/*********************************************************************
-    Name: liblte_value_2_bits
-
-    Description: Converts a value to a bit string
-*********************************************************************/
-void liblte_value_2_bits(uint32   value,
-                         uint8  **bits,
-                         uint32   N_bits)
+class LTE_fdd_enb_gw
 {
-    uint32 i;
+public:
+    // Singleton
+    static LTE_fdd_enb_gw* get_instance(void);
+    static void cleanup(void);
 
-    for(i=0; i<N_bits; i++)
-    {
-        (*bits)[i] = (value >> (N_bits-i-1)) & 0x1;
-    }
-    *bits += N_bits;
-}
+    // Start/Stop
+    bool is_started(void);
+    LTE_FDD_ENB_ERROR_ENUM start(char *err_str);
+    void stop(void);
 
-/*********************************************************************
-    Name: liblte_bits_2_value
+private:
+    // Singleton
+    static LTE_fdd_enb_gw *instance;
+    LTE_fdd_enb_gw();
+    ~LTE_fdd_enb_gw();
 
-    Description: Converts a bit string to a value
-*********************************************************************/
-uint32 liblte_bits_2_value(uint8  **bits,
-                           uint32   N_bits)
-{
-    uint32 value = 0;
-    uint32 i;
+    // Start/Stop
+    boost::mutex start_mutex;
+    bool         started;
 
-    for(i=0; i<N_bits; i++)
-    {
-        value |= (*bits)[i] << (N_bits-i-1);
-    }
-    *bits += N_bits;
+    // Communication
+    void handle_pdcp_msg(LTE_FDD_ENB_MESSAGE_STRUCT *msg);
+    LTE_fdd_enb_msgq                   *pdcp_comm_msgq;
+    boost::interprocess::message_queue *gw_pdcp_mq;
 
-    return(value);
-}
+    // PDCP Message Handlers
+    void handle_gw_data(LTE_FDD_ENB_GW_DATA_READY_MSG_STRUCT *gw_data);
+
+    // GW Receive
+    static void* receive_thread(void *inputs);
+    pthread_t rx_thread;
+
+    // TUN device
+    int32 tun_fd;
+};
+
+#endif /* __LTE_FDD_ENB_GW_H__ */

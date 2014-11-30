@@ -35,6 +35,9 @@
                                    resolution identity and fixed an issue with
                                    t_poll_retransmit.
     11/01/2014    Ben Wojtowicz    Added SRB2 support and PDCP security.
+    11/29/2014    Ben Wojtowicz    Added more DRB support, moved almost
+                                   everything to byte messages structs, added
+                                   IP gateway and RLC UMD support.
 
 *******************************************************************************/
 
@@ -104,6 +107,14 @@ LTE_fdd_enb_rb::LTE_fdd_enb_rb(LTE_FDD_ENB_RB_ENUM  _rb,
         pdcp_config   = LTE_FDD_ENB_PDCP_CONFIG_N_A;
         rlc_config    = LTE_FDD_ENB_RLC_CONFIG_AM;
         mac_config    = LTE_FDD_ENB_MAC_CONFIG_TM;
+    }else if(LTE_FDD_ENB_RB_DRB1 == rb){
+        pdcp_config = LTE_FDD_ENB_PDCP_CONFIG_LONG_SN;
+        rlc_config  = LTE_FDD_ENB_RLC_CONFIG_UM;
+        mac_config  = LTE_FDD_ENB_MAC_CONFIG_TM;
+    }else if(LTE_FDD_ENB_RB_DRB2 == rb){
+        pdcp_config = LTE_FDD_ENB_PDCP_CONFIG_LONG_SN;
+        rlc_config  = LTE_FDD_ENB_RLC_CONFIG_UM;
+        mac_config  = LTE_FDD_ENB_MAC_CONFIG_TM;
     }
 
     // RRC
@@ -114,23 +125,30 @@ LTE_fdd_enb_rb::LTE_fdd_enb_rb(LTE_FDD_ENB_RB_ENUM  _rb,
     pdcp_tx_count = 0;
 
     // RLC
-    rlc_reception_buffer.clear();
-    rlc_transmission_buffer.clear();
-    rlc_vrr              = 0;
-    rlc_vrmr             = rlc_vrr + LIBLTE_RLC_AM_WINDOW_SIZE;
-    rlc_vrh              = 0;
-    rlc_first_segment_sn = 0xFFFF;
-    rlc_last_segment_sn  = 0xFFFF;
-    rlc_vta              = 0;
-    rlc_vtms             = rlc_vta + LIBLTE_RLC_AM_WINDOW_SIZE;
-    rlc_vts              = 0;
+    rlc_am_reception_buffer.clear();
+    rlc_am_transmission_buffer.clear();
+    rlc_um_reception_buffer.clear();
+    rlc_vrr                 = 0;
+    rlc_vrmr                = rlc_vrr + LIBLTE_RLC_AM_WINDOW_SIZE;
+    rlc_vrh                 = 0;
+    rlc_first_am_segment_sn = 0xFFFF;
+    rlc_last_am_segment_sn  = 0xFFFF;
+    rlc_vta                 = 0;
+    rlc_vtms                = rlc_vta + LIBLTE_RLC_AM_WINDOW_SIZE;
+    rlc_vts                 = 0;
+    rlc_vruh                = 0;
+    rlc_vrur                = 0;
+    rlc_um_window_size      = 512;
+    rlc_first_um_segment_sn = 0xFFFF;
+    rlc_last_um_segment_sn  = 0xFFFF;
+    rlc_vtus                = 0;
 
     // MAC
     mac_con_res_id = 0;
 
     // Setup the QoS
-    avail_qos[0] = (LTE_FDD_ENB_QOS_STRUCT){ 0,   0};
-    avail_qos[1] = (LTE_FDD_ENB_QOS_STRUCT){20, 176};
+    avail_qos[0] = (LTE_FDD_ENB_QOS_STRUCT){ 0,  0};
+    avail_qos[1] = (LTE_FDD_ENB_QOS_STRUCT){20, 22};
     qos          = LTE_FDD_ENB_QOS_NONE;
 }
 LTE_fdd_enb_rb::~LTE_fdd_enb_rb()
@@ -138,6 +156,10 @@ LTE_fdd_enb_rb::~LTE_fdd_enb_rb()
     LTE_fdd_enb_timer_mgr *timer_mgr = LTE_fdd_enb_timer_mgr::get_instance();
 
     timer_mgr->stop_timer(ul_sched_timer_id);
+    if(LTE_FDD_ENB_INVALID_TIMER_ID != t_poll_retransmit_timer_id)
+    {
+        timer_mgr->stop_timer(t_poll_retransmit_timer_id);
+    }
 }
 
 /******************/
@@ -146,6 +168,22 @@ LTE_fdd_enb_rb::~LTE_fdd_enb_rb()
 LTE_FDD_ENB_RB_ENUM LTE_fdd_enb_rb::get_rb_id(void)
 {
     return(rb);
+}
+
+/************/
+/*    GW    */
+/************/
+void LTE_fdd_enb_rb::queue_gw_data_msg(LIBLTE_BYTE_MSG_STRUCT *gw_data)
+{
+    queue_msg(gw_data, &gw_data_msg_queue_mutex, &gw_data_msg_queue);
+}
+LTE_FDD_ENB_ERROR_ENUM LTE_fdd_enb_rb::get_next_gw_data_msg(LIBLTE_BYTE_MSG_STRUCT **gw_data)
+{
+    return(get_next_msg(&gw_data_msg_queue_mutex, &gw_data_msg_queue, gw_data));
+}
+LTE_FDD_ENB_ERROR_ENUM LTE_fdd_enb_rb::delete_next_gw_data_msg(void)
+{
+    return(delete_next_msg(&gw_data_msg_queue_mutex, &gw_data_msg_queue));
 }
 
 /*************/
@@ -281,11 +319,11 @@ void LTE_fdd_enb_rb::set_rrc_transaction_id(uint8 transaction_id)
 /**************/
 /*    PDCP    */
 /**************/
-void LTE_fdd_enb_rb::queue_pdcp_pdu(LIBLTE_BIT_MSG_STRUCT *pdu)
+void LTE_fdd_enb_rb::queue_pdcp_pdu(LIBLTE_BYTE_MSG_STRUCT *pdu)
 {
     queue_msg(pdu, &pdcp_pdu_queue_mutex, &pdcp_pdu_queue);
 }
-LTE_FDD_ENB_ERROR_ENUM LTE_fdd_enb_rb::get_next_pdcp_pdu(LIBLTE_BIT_MSG_STRUCT **pdu)
+LTE_FDD_ENB_ERROR_ENUM LTE_fdd_enb_rb::get_next_pdcp_pdu(LIBLTE_BYTE_MSG_STRUCT **pdu)
 {
     return(get_next_msg(&pdcp_pdu_queue_mutex, &pdcp_pdu_queue, pdu));
 }
@@ -304,6 +342,18 @@ LTE_FDD_ENB_ERROR_ENUM LTE_fdd_enb_rb::get_next_pdcp_sdu(LIBLTE_BIT_MSG_STRUCT *
 LTE_FDD_ENB_ERROR_ENUM LTE_fdd_enb_rb::delete_next_pdcp_sdu(void)
 {
     return(delete_next_msg(&pdcp_sdu_queue_mutex, &pdcp_sdu_queue));
+}
+void LTE_fdd_enb_rb::queue_pdcp_data_sdu(LIBLTE_BYTE_MSG_STRUCT *sdu)
+{
+    queue_msg(sdu, &pdcp_data_sdu_queue_mutex, &pdcp_data_sdu_queue);
+}
+LTE_FDD_ENB_ERROR_ENUM LTE_fdd_enb_rb::get_next_pdcp_data_sdu(LIBLTE_BYTE_MSG_STRUCT **sdu)
+{
+    return(get_next_msg(&pdcp_data_sdu_queue_mutex, &pdcp_data_sdu_queue, sdu));
+}
+LTE_FDD_ENB_ERROR_ENUM LTE_fdd_enb_rb::delete_next_pdcp_data_sdu(void)
+{
+    return(delete_next_msg(&pdcp_data_sdu_queue_mutex, &pdcp_data_sdu_queue));
 }
 void LTE_fdd_enb_rb::set_pdcp_config(LTE_FDD_ENB_PDCP_CONFIG_ENUM config)
 {
@@ -333,11 +383,11 @@ void LTE_fdd_enb_rb::set_pdcp_tx_count(uint32 tx_count)
 /*************/
 /*    RLC    */
 /*************/
-void LTE_fdd_enb_rb::queue_rlc_pdu(LIBLTE_BIT_MSG_STRUCT *pdu)
+void LTE_fdd_enb_rb::queue_rlc_pdu(LIBLTE_BYTE_MSG_STRUCT *pdu)
 {
     queue_msg(pdu, &rlc_pdu_queue_mutex, &rlc_pdu_queue);
 }
-LTE_FDD_ENB_ERROR_ENUM LTE_fdd_enb_rb::get_next_rlc_pdu(LIBLTE_BIT_MSG_STRUCT **pdu)
+LTE_FDD_ENB_ERROR_ENUM LTE_fdd_enb_rb::get_next_rlc_pdu(LIBLTE_BYTE_MSG_STRUCT **pdu)
 {
     return(get_next_msg(&rlc_pdu_queue_mutex, &rlc_pdu_queue, pdu));
 }
@@ -345,11 +395,11 @@ LTE_FDD_ENB_ERROR_ENUM LTE_fdd_enb_rb::delete_next_rlc_pdu(void)
 {
     return(delete_next_msg(&rlc_pdu_queue_mutex, &rlc_pdu_queue));
 }
-void LTE_fdd_enb_rb::queue_rlc_sdu(LIBLTE_BIT_MSG_STRUCT *sdu)
+void LTE_fdd_enb_rb::queue_rlc_sdu(LIBLTE_BYTE_MSG_STRUCT *sdu)
 {
     queue_msg(sdu, &rlc_sdu_queue_mutex, &rlc_sdu_queue);
 }
-LTE_FDD_ENB_ERROR_ENUM LTE_fdd_enb_rb::get_next_rlc_sdu(LIBLTE_BIT_MSG_STRUCT **sdu)
+LTE_FDD_ENB_ERROR_ENUM LTE_fdd_enb_rb::get_next_rlc_sdu(LIBLTE_BYTE_MSG_STRUCT **sdu)
 {
     return(get_next_msg(&rlc_sdu_queue_mutex, &rlc_sdu_queue, sdu));
 }
@@ -372,14 +422,14 @@ void LTE_fdd_enb_rb::set_rlc_vrr(uint16 vrr)
 }
 void LTE_fdd_enb_rb::update_rlc_vrr(void)
 {
-    std::map<uint16, LIBLTE_BIT_MSG_STRUCT *>::iterator iter;
-    uint32                                              i;
-    uint16                                              vrr = rlc_vrr;
+    std::map<uint16, LIBLTE_BYTE_MSG_STRUCT *>::iterator iter;
+    uint32                                               i;
+    uint16                                               vrr = rlc_vrr;
 
     for(i=vrr; i<rlc_vrh; i++)
     {
-        iter = rlc_reception_buffer.find(i);
-        if(rlc_reception_buffer.end() != iter)
+        iter = rlc_am_reception_buffer.find(i);
+        if(rlc_am_reception_buffer.end() != iter)
         {
             rlc_vrr = i+1;
         }
@@ -397,37 +447,39 @@ void LTE_fdd_enb_rb::set_rlc_vrh(uint16 vrh)
 {
     rlc_vrh = vrh;
 }
-void LTE_fdd_enb_rb::rlc_add_to_reception_buffer(LIBLTE_RLC_AMD_PDU_STRUCT *amd_pdu)
+void LTE_fdd_enb_rb::rlc_add_to_am_reception_buffer(LIBLTE_RLC_AMD_PDU_STRUCT *amd_pdu)
 {
-    std::map<uint16, LIBLTE_BIT_MSG_STRUCT *>::iterator  iter;
-    LIBLTE_BIT_MSG_STRUCT                               *new_pdu = NULL;
+    std::map<uint16, LIBLTE_BYTE_MSG_STRUCT *>::iterator  iter;
+    LIBLTE_BYTE_MSG_STRUCT                               *new_pdu = NULL;
 
-    new_pdu = new LIBLTE_BIT_MSG_STRUCT;
+    new_pdu = new LIBLTE_BYTE_MSG_STRUCT;
 
     if(NULL != new_pdu)
     {
-        iter = rlc_reception_buffer.find(amd_pdu->hdr.sn);
-        if(rlc_reception_buffer.end() == iter)
+        iter = rlc_am_reception_buffer.find(amd_pdu->hdr.sn);
+        if(rlc_am_reception_buffer.end() == iter)
         {
-            memcpy(new_pdu, &amd_pdu->data, sizeof(LIBLTE_BIT_MSG_STRUCT));
-            rlc_reception_buffer[amd_pdu->hdr.sn] = new_pdu;
+            memcpy(new_pdu, &amd_pdu->data, sizeof(LIBLTE_BYTE_MSG_STRUCT));
+            rlc_am_reception_buffer[amd_pdu->hdr.sn] = new_pdu;
 
             if(LIBLTE_RLC_FI_FIELD_FULL_SDU == amd_pdu->hdr.fi)
             {
-                rlc_first_segment_sn = amd_pdu->hdr.sn;
-                rlc_last_segment_sn  = amd_pdu->hdr.sn;
+                rlc_first_am_segment_sn = amd_pdu->hdr.sn;
+                rlc_last_am_segment_sn  = amd_pdu->hdr.sn;
             }else if(LIBLTE_RLC_FI_FIELD_FIRST_SDU_SEGMENT == amd_pdu->hdr.fi){
-                rlc_first_segment_sn = amd_pdu->hdr.sn;
+                rlc_first_am_segment_sn = amd_pdu->hdr.sn;
             }else if(LIBLTE_RLC_FI_FIELD_LAST_SDU_SEGMENT == amd_pdu->hdr.fi){
-                rlc_last_segment_sn = amd_pdu->hdr.sn;
+                rlc_last_am_segment_sn = amd_pdu->hdr.sn;
             }
+        }else{
+            delete new_pdu;
         }
     }
 }
-void LTE_fdd_enb_rb::rlc_get_reception_buffer_status(LIBLTE_RLC_STATUS_PDU_STRUCT *status)
+void LTE_fdd_enb_rb::rlc_get_am_reception_buffer_status(LIBLTE_RLC_STATUS_PDU_STRUCT *status)
 {
-    std::map<uint16, LIBLTE_BIT_MSG_STRUCT *>::iterator iter;
-    uint32                                              i;
+    std::map<uint16, LIBLTE_BYTE_MSG_STRUCT *>::iterator iter;
+    uint32                                               i;
 
     // Fill in the ACK_SN
     status->ack_sn = rlc_vrh;
@@ -443,8 +495,8 @@ void LTE_fdd_enb_rb::rlc_get_reception_buffer_status(LIBLTE_RLC_STATUS_PDU_STRUC
                 i -= 0x3FFFF;
             }
 
-            iter = rlc_reception_buffer.find(i);
-            if(rlc_reception_buffer.end() == iter)
+            iter = rlc_am_reception_buffer.find(i);
+            if(rlc_am_reception_buffer.end() == iter)
             {
                 status->nack_sn[status->N_nack++] = i;
             }
@@ -457,21 +509,21 @@ void LTE_fdd_enb_rb::rlc_get_reception_buffer_status(LIBLTE_RLC_STATUS_PDU_STRUC
         }
     }
 }
-LTE_FDD_ENB_ERROR_ENUM LTE_fdd_enb_rb::rlc_reassemble(LIBLTE_BIT_MSG_STRUCT *sdu)
+LTE_FDD_ENB_ERROR_ENUM LTE_fdd_enb_rb::rlc_am_reassemble(LIBLTE_BYTE_MSG_STRUCT *sdu)
 {
-    std::map<uint16, LIBLTE_BIT_MSG_STRUCT *>::iterator iter;
-    LTE_FDD_ENB_ERROR_ENUM                              err = LTE_FDD_ENB_ERROR_CANT_REASSEMBLE_SDU;
-    uint32                                              i;
-    bool                                                reassemble = true;
+    std::map<uint16, LIBLTE_BYTE_MSG_STRUCT *>::iterator iter;
+    LTE_FDD_ENB_ERROR_ENUM                               err = LTE_FDD_ENB_ERROR_CANT_REASSEMBLE_SDU;
+    uint32                                               i;
+    bool                                                 reassemble = true;
 
-    if(0xFFFF != rlc_first_segment_sn &&
-       0xFFFF != rlc_last_segment_sn)
+    if(0xFFFF != rlc_first_am_segment_sn &&
+       0xFFFF != rlc_last_am_segment_sn)
     {
         // Make sure all segments are available
-        for(i=rlc_first_segment_sn; i<=rlc_last_segment_sn; i++)
+        for(i=rlc_first_am_segment_sn; i<=rlc_last_am_segment_sn; i++)
         {
-            iter = rlc_reception_buffer.find(i);
-            if(rlc_reception_buffer.end() == iter)
+            iter = rlc_am_reception_buffer.find(i);
+            if(rlc_am_reception_buffer.end() == iter)
             {
                 reassemble = false;
             }
@@ -480,19 +532,19 @@ LTE_FDD_ENB_ERROR_ENUM LTE_fdd_enb_rb::rlc_reassemble(LIBLTE_BIT_MSG_STRUCT *sdu
         if(reassemble)
         {
             // Reorder and reassemble the SDU
-            sdu->N_bits = 0;
-            for(i=rlc_first_segment_sn; i<=rlc_last_segment_sn; i++)
+            sdu->N_bytes = 0;
+            for(i=rlc_first_am_segment_sn; i<=rlc_last_am_segment_sn; i++)
             {
-                iter = rlc_reception_buffer.find(i);
-                memcpy(&sdu->msg[sdu->N_bits], (*iter).second->msg, (*iter).second->N_bits);
-                sdu->N_bits += (*iter).second->N_bits;
+                iter = rlc_am_reception_buffer.find(i);
+                memcpy(&sdu->msg[sdu->N_bytes], (*iter).second->msg, (*iter).second->N_bytes);
+                sdu->N_bytes += (*iter).second->N_bytes;
                 delete (*iter).second;
-                rlc_reception_buffer.erase(iter);
+                rlc_am_reception_buffer.erase(iter);
             }
 
             // Clear the first/last segment SNs
-            rlc_first_segment_sn = 0xFFFF;
-            rlc_last_segment_sn  = 0xFFFF;
+            rlc_first_am_segment_sn = 0xFFFF;
+            rlc_last_am_segment_sn  = 0xFFFF;
 
             err = LTE_FDD_ENB_ERROR_NONE;
         }
@@ -530,7 +582,7 @@ void LTE_fdd_enb_rb::rlc_add_to_transmission_buffer(LIBLTE_RLC_AMD_PDU_STRUCT *a
     if(NULL != new_pdu)
     {
         memcpy(new_pdu, amd_pdu, sizeof(LIBLTE_RLC_AMD_PDU_STRUCT));
-        rlc_transmission_buffer[amd_pdu->hdr.sn] = new_pdu;
+        rlc_am_transmission_buffer[amd_pdu->hdr.sn] = new_pdu;
     }
 }
 void LTE_fdd_enb_rb::rlc_update_transmission_buffer(uint32 ack_sn)
@@ -541,11 +593,11 @@ void LTE_fdd_enb_rb::rlc_update_transmission_buffer(uint32 ack_sn)
 
     while(i != ack_sn)
     {
-        iter = rlc_transmission_buffer.find(i);
-        if(rlc_transmission_buffer.end() != iter)
+        iter = rlc_am_transmission_buffer.find(i);
+        if(rlc_am_transmission_buffer.end() != iter)
         {
             delete (*iter).second;
-            rlc_transmission_buffer.erase(iter);
+            rlc_am_transmission_buffer.erase(iter);
             if(update_vta)
             {
                 set_rlc_vta(i+1);
@@ -560,7 +612,7 @@ void LTE_fdd_enb_rb::rlc_update_transmission_buffer(uint32 ack_sn)
         }
     }
 
-    if(rlc_transmission_buffer.size() == 0)
+    if(rlc_am_transmission_buffer.size() == 0)
     {
         rlc_stop_t_poll_retransmit();
     }
@@ -585,24 +637,124 @@ void LTE_fdd_enb_rb::rlc_stop_t_poll_retransmit(void)
 void LTE_fdd_enb_rb::handle_t_poll_retransmit_timer_expiry(uint32 timer_id)
 {
     LTE_fdd_enb_rlc                                         *rlc  = LTE_fdd_enb_rlc::get_instance();
-    std::map<uint16, LIBLTE_RLC_AMD_PDU_STRUCT *>::iterator  iter = rlc_transmission_buffer.find(rlc_vta);
+    std::map<uint16, LIBLTE_RLC_AMD_PDU_STRUCT *>::iterator  iter = rlc_am_transmission_buffer.find(rlc_vta);
 
     t_poll_retransmit_timer_id = LTE_FDD_ENB_INVALID_TIMER_ID;
 
-    if(rlc_transmission_buffer.end() != iter)
+    if(rlc_am_transmission_buffer.end() != iter)
     {
         rlc->handle_retransmit((*iter).second, user, this);
     }
+}
+void LTE_fdd_enb_rb::set_rlc_vruh(uint16 vruh)
+{
+    rlc_vruh = vruh;
+}
+uint16 LTE_fdd_enb_rb::get_rlc_vruh(void)
+{
+    return(rlc_vruh);
+}
+void LTE_fdd_enb_rb::set_rlc_vrur(uint16 vrur)
+{
+    rlc_vrur = vrur;
+}
+uint16 LTE_fdd_enb_rb::get_rlc_vrur(void)
+{
+    return(rlc_vrur);
+}
+uint16 LTE_fdd_enb_rb::get_rlc_um_window_size(void)
+{
+    return(rlc_um_window_size);
+}
+void LTE_fdd_enb_rb::rlc_add_to_um_reception_buffer(LIBLTE_RLC_UMD_PDU_STRUCT *umd_pdu)
+{
+    std::map<uint16, LIBLTE_BYTE_MSG_STRUCT *>::iterator  iter;
+    LIBLTE_BYTE_MSG_STRUCT                               *new_pdu = NULL;
+
+    new_pdu = new LIBLTE_BYTE_MSG_STRUCT;
+
+    if(NULL != new_pdu)
+    {
+        iter = rlc_um_reception_buffer.find(umd_pdu->hdr.sn);
+        if(rlc_um_reception_buffer.end() == iter)
+        {
+            memcpy(new_pdu, &umd_pdu->data, sizeof(LIBLTE_BYTE_MSG_STRUCT));
+            rlc_um_reception_buffer[umd_pdu->hdr.sn] = new_pdu;
+
+            if(LIBLTE_RLC_FI_FIELD_FULL_SDU == umd_pdu->hdr.fi)
+            {
+                rlc_first_um_segment_sn = umd_pdu->hdr.sn;
+                rlc_last_um_segment_sn  = umd_pdu->hdr.sn;
+            }else if(LIBLTE_RLC_FI_FIELD_FIRST_SDU_SEGMENT == umd_pdu->hdr.fi){
+                rlc_first_um_segment_sn = umd_pdu->hdr.sn;
+            }else if(LIBLTE_RLC_FI_FIELD_LAST_SDU_SEGMENT == umd_pdu->hdr.fi){
+                rlc_last_um_segment_sn = umd_pdu->hdr.sn;
+            }
+        }else{
+            delete new_pdu;
+        }
+    }
+}
+LTE_FDD_ENB_ERROR_ENUM LTE_fdd_enb_rb::rlc_um_reassemble(LIBLTE_BYTE_MSG_STRUCT *sdu)
+{
+    std::map<uint16, LIBLTE_BYTE_MSG_STRUCT *>::iterator iter;
+    LTE_FDD_ENB_ERROR_ENUM                               err = LTE_FDD_ENB_ERROR_CANT_REASSEMBLE_SDU;
+    uint32                                               i;
+    bool                                                 reassemble = true;
+
+    if(0xFFFF != rlc_first_um_segment_sn &&
+       0xFFFF != rlc_last_um_segment_sn)
+    {
+        // Make sure all segments are available
+        for(i=rlc_first_um_segment_sn; i<=rlc_last_um_segment_sn; i++)
+        {
+            iter = rlc_um_reception_buffer.find(i);
+            if(rlc_um_reception_buffer.end() == iter)
+            {
+                reassemble = false;
+            }
+        }
+
+        if(reassemble)
+        {
+            // Reorder and reassemble the SDU
+            sdu->N_bytes = 0;
+            for(i=rlc_first_um_segment_sn; i<=rlc_last_um_segment_sn; i++)
+            {
+                iter = rlc_um_reception_buffer.find(i);
+                memcpy(&sdu->msg[sdu->N_bytes], (*iter).second->msg, (*iter).second->N_bytes);
+                sdu->N_bytes += (*iter).second->N_bytes;
+                delete (*iter).second;
+                rlc_um_reception_buffer.erase(iter);
+            }
+
+            // Clear the first/last segment SNs
+            rlc_first_um_segment_sn = 0xFFFF;
+            rlc_last_um_segment_sn  = 0xFFFF;
+
+            err = LTE_FDD_ENB_ERROR_NONE;
+        }
+    }
+
+    return(err);
+}
+void LTE_fdd_enb_rb::set_rlc_vtus(uint16 vtus)
+{
+    rlc_vtus = vtus;
+}
+uint16 LTE_fdd_enb_rb::get_rlc_vtus(void)
+{
+    return(rlc_vtus);
 }
 
 /*************/
 /*    MAC    */
 /*************/
-void LTE_fdd_enb_rb::queue_mac_sdu(LIBLTE_BIT_MSG_STRUCT *sdu)
+void LTE_fdd_enb_rb::queue_mac_sdu(LIBLTE_BYTE_MSG_STRUCT *sdu)
 {
     queue_msg(sdu, &mac_sdu_queue_mutex, &mac_sdu_queue);
 }
-LTE_FDD_ENB_ERROR_ENUM LTE_fdd_enb_rb::get_next_mac_sdu(LIBLTE_BIT_MSG_STRUCT **sdu)
+LTE_FDD_ENB_ERROR_ENUM LTE_fdd_enb_rb::get_next_mac_sdu(LIBLTE_BYTE_MSG_STRUCT **sdu)
 {
     return(get_next_msg(&mac_sdu_queue_mutex, &mac_sdu_queue, sdu));
 }
@@ -632,7 +784,7 @@ void LTE_fdd_enb_rb::handle_ul_sched_timer_expiry(uint32 timer_id)
 {
     LTE_fdd_enb_mac *mac = LTE_fdd_enb_mac::get_instance();
 
-    mac->sched_ul(user, avail_qos[qos].bits_per_subfn);
+    mac->sched_ul(user, avail_qos[qos].bytes_per_subfn*8);
     if(LTE_FDD_ENB_RRC_PROC_IDLE  != rrc_procedure &&
        LTE_FDD_ENB_RRC_STATE_IDLE != rrc_state)
     {
@@ -654,6 +806,42 @@ void LTE_fdd_enb_rb::set_send_con_res_id(bool send_con_res_id)
 bool LTE_fdd_enb_rb::get_send_con_res_id(void)
 {
     return(mac_send_con_res_id);
+}
+
+/*************/
+/*    DRB    */
+/*************/
+void LTE_fdd_enb_rb::set_eps_bearer_id(uint32 ebi)
+{
+    eps_bearer_id = ebi;
+}
+uint32 LTE_fdd_enb_rb::get_eps_bearer_id(void)
+{
+    return(eps_bearer_id);
+}
+void LTE_fdd_enb_rb::set_lc_id(uint32 _lc_id)
+{
+    lc_id = _lc_id;
+}
+uint32 LTE_fdd_enb_rb::get_lc_id(void)
+{
+    return(lc_id);
+}
+void LTE_fdd_enb_rb::set_drb_id(uint8 _drb_id)
+{
+    drb_id = _drb_id;
+}
+uint8 LTE_fdd_enb_rb::get_drb_id(void)
+{
+    return(drb_id);
+}
+void LTE_fdd_enb_rb::set_log_chan_group(uint8 lcg)
+{
+    log_chan_group = lcg;
+}
+uint8 LTE_fdd_enb_rb::get_log_chan_group(void)
+{
+    return(log_chan_group);
 }
 
 /*****************/
@@ -765,7 +953,7 @@ uint32 LTE_fdd_enb_rb::get_qos_tti_freq(void)
 {
     return(avail_qos[qos].tti_frequency);
 }
-uint32 LTE_fdd_enb_rb::get_qos_bits_per_subfn(void)
+uint32 LTE_fdd_enb_rb::get_qos_bytes_per_subfn(void)
 {
-    return(avail_qos[qos].bits_per_subfn);
+    return(avail_qos[qos].bytes_per_subfn);
 }

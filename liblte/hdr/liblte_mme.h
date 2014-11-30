@@ -28,6 +28,7 @@
     08/03/2014    Ben Wojtowicz    Added more decoding/encoding.
     09/03/2014    Ben Wojtowicz    Added more decoding/encoding.
     11/01/2014    Ben Wojtowicz    Added more decoding/encoding.
+    11/29/2014    Ben Wojtowicz    Added more decoding/encoding.
 
 *******************************************************************************/
 
@@ -2346,10 +2347,76 @@ LIBLTE_ERROR_ENUM liblte_mme_unpack_request_type_ie(uint8 **ie_ptr,
                         24.008 v10.2.0 Section 10.5.6.12
 *********************************************************************/
 // Defines
+#define LIBLTE_MME_PACKET_FILTER_LIST_MAX_SIZE                                            15
+#define LIBLTE_MME_PACKET_FILTER_MAX_SIZE                                                 20
+#define LIBLTE_MME_PARAMETER_LIST_MAX_SIZE                                                15
+#define LIBLTE_MME_PARAMETER_MAX_SIZE                                                     20
+#define LIBLTE_MME_TFT_PACKET_FILTER_COMPONENT_TYPE_ID_IPV4_REMOTE_ADDRESS_TYPE           0x10
+#define LIBLTE_MME_TFT_PACKET_FILTER_COMPONENT_TYPE_ID_IPV6_REMOTE_ADDRESS_TYPE           0x20
+#define LIBLTE_MME_TFT_PACKET_FILTER_COMPONENT_TYPE_ID_PROTOCOL_ID_NEXT_HEADER_TYPE       0x30
+#define LIBLTE_MME_TFT_PACKET_FILTER_COMPONENT_TYPE_ID_SINGLE_LOCAL_PORT_TYPE             0x40
+#define LIBLTE_MME_TFT_PACKET_FILTER_COMPONENT_TYPE_ID_LOCAL_PORT_RANGE_TYPE              0x41
+#define LIBLTE_MME_TFT_PACKET_FILTER_COMPONENT_TYPE_ID_SINGLE_REMOTE_PORT_TYPE            0x50
+#define LIBLTE_MME_TFT_PACKET_FILTER_COMPONENT_TYPE_ID_REMOTE_PORT_RANGE_TYPE             0x51
+#define LIBLTE_MME_TFT_PACKET_FILTER_COMPONENT_TYPE_ID_SECURITY_PARAMETER_INDEX_TYPE      0x60
+#define LIBLTE_MME_TFT_PACKET_FILTER_COMPONENT_TYPE_ID_TYPE_OF_SERVICE_TRAFFIC_CLASS_TYPE 0x70
+#define LIBLTE_MME_TFT_PACKET_FILTER_COMPONENT_TYPE_ID_FLOW_LABEL_TYPE                    0x80
 // Enums
+typedef enum{
+    LIBLTE_MME_TFT_OPERATION_CODE_SPARE = 0,
+    LIBLTE_MME_TFT_OPERATION_CODE_CREATE_NEW_TFT,
+    LIBLTE_MME_TFT_OPERATION_CODE_DELETE_EXISTING_TFT,
+    LIBLTE_MME_TFT_OPERATION_CODE_ADD_PACKET_FILTERS_TO_EXISTING_TFT,
+    LIBLTE_MME_TFT_OPERATION_CODE_REPLACE_PACKET_FILTERS_IN_EXISTING_TFT,
+    LIBLTE_MME_TFT_OPERATION_CODE_DELETE_PACKET_FILTERS_FROM_EXISTING_TFT,
+    LIBLTE_MME_TFT_OPERATION_CODE_NO_TFT_OPERATION,
+    LIBLTE_MME_TFT_OPERATION_CODE_RESERVED,
+    LIBLTE_MME_TFT_OPERATION_CODE_N_ITEMS,
+}LIBLTE_MME_TFT_OPERATION_CODE_ENUM;
+static const char liblte_mme_tft_operation_code_text[LIBLTE_MME_TFT_OPERATION_CODE_N_ITEMS][100] = {"SPARE",
+                                                                                                    "Create New TFT",
+                                                                                                    "Delete Existing TFT",
+                                                                                                    "Add Packet Filters to Existing TFT",
+                                                                                                    "Replace Packet Filters in Existing TFT",
+                                                                                                    "Delete Packet Filters from Existing TFT",
+                                                                                                    "No TFT Operation",
+                                                                                                    "RESERVED"};
+typedef enum{
+    LIBLTE_MME_TFT_PACKET_FILTER_DIRECTION_PRE_REL_7_TFT_FILTER = 0,
+    LIBLTE_MME_TFT_PACKET_FILTER_DIRECTION_DOWNLINK_ONLY,
+    LIBLTE_MME_TFT_PACKET_FILTER_DIRECTION_UPLINK_ONLY,
+    LIBLTE_MME_TFT_PACKET_FILTER_DIRECTION_BIDIRECTIONAL,
+    LIBLTE_MME_TFT_PACKET_FILTER_DIRECTION_N_ITEMS,
+}LIBLTE_MME_TFT_PACKET_FILTER_DIRECTION_ENUM;
+static const char liblte_mme_tft_packet_filter_direction_text[LIBLTE_MME_TFT_PACKET_FILTER_DIRECTION_N_ITEMS][100] = {"Pre Rel-7 TFT Filter",
+                                                                                                                      "Downlink Only",
+                                                                                                                      "Uplink Only",
+                                                                                                                      "Bidirectional"};
 // Structs
+typedef struct{
+    LIBLTE_MME_TFT_PACKET_FILTER_DIRECTION_ENUM dir;
+    uint8                                       id;
+    uint8                                       eval_precedence;
+    uint8                                       filter[LIBLTE_MME_PACKET_FILTER_MAX_SIZE];
+    uint8                                       filter_size;
+}LIBLTE_MME_PACKET_FILTER_STRUCT;
+typedef struct{
+    uint8 id;
+    uint8 parameter[LIBLTE_MME_PARAMETER_MAX_SIZE];
+    uint8 parameter_size;
+}LIBLTE_MME_PARAMETER_STRUCT;
+typedef struct{
+    LIBLTE_MME_PACKET_FILTER_STRUCT    packet_filter_list[LIBLTE_MME_PACKET_FILTER_LIST_MAX_SIZE];
+    LIBLTE_MME_PARAMETER_STRUCT        parameter_list[LIBLTE_MME_PARAMETER_LIST_MAX_SIZE];
+    LIBLTE_MME_TFT_OPERATION_CODE_ENUM tft_op_code;
+    uint8                              packet_filter_list_size;
+    uint8                              parameter_list_size;
+}LIBLTE_MME_TRAFFIC_FLOW_TEMPLATE_STRUCT;
 // Functions
-// FIXME
+LIBLTE_ERROR_ENUM liblte_mme_pack_traffic_flow_template_ie(LIBLTE_MME_TRAFFIC_FLOW_TEMPLATE_STRUCT  *tft,
+                                                           uint8                                   **ie_ptr);
+LIBLTE_ERROR_ENUM liblte_mme_unpack_traffic_flow_template_ie(uint8                                   **ie_ptr,
+                                                             LIBLTE_MME_TRAFFIC_FLOW_TEMPLATE_STRUCT  *tft);
 
 /*********************************************************************
     IE Name: Transaction Identifier
@@ -3119,8 +3186,15 @@ LIBLTE_ERROR_ENUM liblte_mme_unpack_service_reject_msg(LIBLTE_BYTE_MSG_STRUCT   
 // Defines
 // Enums
 // Structs
+typedef struct{
+    LIBLTE_MME_KSI_AND_SEQUENCE_NUMBER_STRUCT ksi_and_seq_num;
+    uint16                                    short_mac;
+}LIBLTE_MME_SERVICE_REQUEST_MSG_STRUCT;
 // Functions
-// FIXME
+LIBLTE_ERROR_ENUM liblte_mme_pack_service_request_msg(LIBLTE_MME_SERVICE_REQUEST_MSG_STRUCT *service_req,
+                                                      LIBLTE_BYTE_MSG_STRUCT                *msg);
+LIBLTE_ERROR_ENUM liblte_mme_unpack_service_request_msg(LIBLTE_BYTE_MSG_STRUCT                *msg,
+                                                        LIBLTE_MME_SERVICE_REQUEST_MSG_STRUCT *service_req);
 
 /*********************************************************************
     Message Name: Tracking Area Update Accept
@@ -3387,8 +3461,30 @@ LIBLTE_ERROR_ENUM liblte_mme_unpack_activate_dedicated_eps_bearer_context_reject
 // Defines
 // Enums
 // Structs
+typedef struct{
+    LIBLTE_MME_EPS_QUALITY_OF_SERVICE_STRUCT  eps_qos;
+    LIBLTE_MME_TRAFFIC_FLOW_TEMPLATE_STRUCT   tft;
+    LIBLTE_MME_TRANSACTION_IDENTIFIER_STRUCT  transaction_id;
+    LIBLTE_MME_QUALITY_OF_SERVICE_STRUCT      negotiated_qos;
+    LIBLTE_MME_PROTOCOL_CONFIG_OPTIONS_STRUCT protocol_cnfg_opts;
+    uint8                                     eps_bearer_id;
+    uint8                                     proc_transaction_id;
+    uint8                                     linked_eps_bearer_id;
+    uint8                                     llc_sapi;
+    uint8                                     radio_prio;
+    uint8                                     packet_flow_id;
+    bool                                      transaction_id_present;
+    bool                                      negotiated_qos_present;
+    bool                                      llc_sapi_present;
+    bool                                      radio_prio_present;
+    bool                                      packet_flow_id_present;
+    bool                                      protocol_cnfg_opts_present;
+}LIBLTE_MME_ACTIVATE_DEDICATED_EPS_BEARER_CONTEXT_REQUEST_MSG_STRUCT;
 // Functions
-// FIXME
+LIBLTE_ERROR_ENUM liblte_mme_pack_activate_dedicated_eps_bearer_context_request_msg(LIBLTE_MME_ACTIVATE_DEDICATED_EPS_BEARER_CONTEXT_REQUEST_MSG_STRUCT *act_ded_eps_bearer_context_req,
+                                                                                    LIBLTE_BYTE_MSG_STRUCT                                              *msg);
+LIBLTE_ERROR_ENUM liblte_mme_unpack_activate_dedicated_eps_bearer_context_request_msg(LIBLTE_BYTE_MSG_STRUCT                                              *msg,
+                                                                                      LIBLTE_MME_ACTIVATE_DEDICATED_EPS_BEARER_CONTEXT_REQUEST_MSG_STRUCT *act_ded_eps_bearer_context_req);
 
 /*********************************************************************
     Message Name: Activate Default EPS Bearer Context Accept

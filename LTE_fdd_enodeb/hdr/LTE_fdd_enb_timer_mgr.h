@@ -27,6 +27,7 @@
     05/04/2014    Ben Wojtowicz    Created file
     06/15/2014    Ben Wojtowicz    Added millisecond resolution.
     08/03/2014    Ben Wojtowicz    Added an invalid timer id.
+    11/29/2014    Ben Wojtowicz    Added timer reset support.
 
 *******************************************************************************/
 
@@ -71,6 +72,7 @@ public:
     // External Interface
     LTE_FDD_ENB_ERROR_ENUM start_timer(uint32 m_seconds, LTE_fdd_enb_timer_cb cb, uint32 *timer_id);
     LTE_FDD_ENB_ERROR_ENUM stop_timer(uint32 timer_id);
+    LTE_FDD_ENB_ERROR_ENUM reset_timer(uint32 timer_id);
     void handle_tick(void);
 
 private:

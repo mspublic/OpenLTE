@@ -28,6 +28,8 @@
     06/15/2014    Ben Wojtowicz    Split LIBLTE_MSG_STRUCT into bit and byte
                                    aligned messages.
     08/03/2014    Ben Wojtowicz    Commonized value_2_bits and bits_2_value.
+    11/29/2014    Ben Wojtowicz    Added liblte prefix to value_2_bits and
+                                   bits_2_value.
 
 *******************************************************************************/
 
@@ -74,20 +76,20 @@ typedef struct{
 *******************************************************************************/
 
 /*********************************************************************
-    Name: value_2_bits
+    Name: liblte_value_2_bits
 
     Description: Converts a value to a bit string
 *********************************************************************/
-void value_2_bits(uint32   value,
-                  uint8  **bits,
-                  uint32   N_bits);
+void liblte_value_2_bits(uint32   value,
+                         uint8  **bits,
+                         uint32   N_bits);
 
 /*********************************************************************
-    Name: bits_2_value
+    Name: liblte_bits_2_value
 
     Description: Converts a bit string to a value
 *********************************************************************/
-uint32 bits_2_value(uint8  **bits,
-                    uint32   N_bits);
+uint32 liblte_bits_2_value(uint8  **bits,
+                           uint32   N_bits);
 
 #endif /* __LIBLTE_COMMON_H__ */

@@ -33,6 +33,8 @@
                                    connection release.
     11/01/2014    Ben Wojtowicz    Added RRC connection reconfiguration and
                                    security mode command messages.
+    11/29/2014    Ben Wojtowicz    Added user and rb update to
+                                   parse_ul_ccch_message.
 
 *******************************************************************************/
 
@@ -112,7 +114,7 @@ private:
     void dcch_sm(LIBLTE_BIT_MSG_STRUCT *msg, LTE_fdd_enb_user *user, LTE_fdd_enb_rb *rb);
 
     // Message Parsers
-    void parse_ul_ccch_message(LIBLTE_BIT_MSG_STRUCT *msg, LTE_fdd_enb_user *user, LTE_fdd_enb_rb *rb);
+    void parse_ul_ccch_message(LIBLTE_BIT_MSG_STRUCT *msg, LTE_fdd_enb_user **user, LTE_fdd_enb_rb **rb);
     void parse_ul_dcch_message(LIBLTE_BIT_MSG_STRUCT *msg, LTE_fdd_enb_user *user, LTE_fdd_enb_rb *rb);
 
     // Message Senders
